@@ -31,3 +31,11 @@ test('loadConfig throws when PROJECT_DIR is not an existing directory', () => {
     ConfigError,
   );
 });
+
+test('loadConfig guards NOTIFY_PORT against NaN', () => {
+  const withAbc = loadConfig({ ...base, NOTIFY_PORT: 'abc' });
+  assert.equal(withAbc.notifyPort, 8787);
+
+  const with9000 = loadConfig({ ...base, NOTIFY_PORT: '9000' });
+  assert.equal(with9000.notifyPort, 9000);
+});

@@ -27,7 +27,7 @@ export function loadConfig(env = process.env) {
     projectDir,
     model: env.CLAUDE_MODEL?.trim() || undefined,
     notifySecret: env.NOTIFY_SECRET?.trim() || null,
-    notifyPort: Number(env.NOTIFY_PORT?.trim() || 8787),
+    notifyPort: Number.isFinite(Number(env.NOTIFY_PORT?.trim())) ? Number(env.NOTIFY_PORT.trim()) : 8787,
     maxPrompt: 4000,
   };
 }
@@ -36,6 +36,7 @@ export function getConfig() {
   try {
     return loadConfig();
   } catch (e) {
+    if (!(e instanceof ConfigError)) throw e;
     console.error(`\n[config] ${e.message}`);
     console.error('         Copy .env.example to .env and fill it in (see README.md).\n');
     process.exit(1);
