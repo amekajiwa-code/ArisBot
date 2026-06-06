@@ -27,6 +27,8 @@ const include = [
   'package-lock.json',
   '.env.example',
   'README.md',
+  'assets',                          // 트레이 아이콘
+  path.join('scripts', 'tray.ps1'),  // 트레이 스크립트(빌드용 scripts/ 나머지는 제외)
 ];
 
 console.log('1/2 스테이징 구성...');
@@ -38,7 +40,9 @@ for (const name of include) {
     console.warn(`  건너뜀(없음): ${name}`);
     continue;
   }
-  cpSync(from, path.join(stage, name), { recursive: true });
+  const to = path.join(stage, name);
+  mkdirSync(path.dirname(to), { recursive: true }); // 중첩 경로(scripts/tray.ps1) 상위 폴더 보장
+  cpSync(from, to, { recursive: true });
 }
 
 console.log('2/2 zip 생성... (node_modules 때문에 시간이 좀 걸립니다)');
