@@ -25,8 +25,9 @@ console.log('2/3 node 복사 → start_bot.exe ...');
 copyFileSync(process.execPath, exe);
 
 console.log('3/3 blob 주입 (postject)...');
+const blob = path.join(root, 'scripts', 'sea-prep.blob');
 execSync(
-  `npx --yes postject "${exe}" NODE_SEA_BLOB scripts/sea-prep.blob --sentinel-fuse ${fuse}`,
+  `npx --yes postject "${exe}" NODE_SEA_BLOB "${blob}" --sentinel-fuse ${fuse}`,
   { cwd: root, stdio: 'inherit' },
 );
 

@@ -22,10 +22,11 @@ function shortcutPath() {
 
 function setup() {
   const lnk = shortcutPath();
+  const psq = (s) => String(s).replace(/'/g, "''"); // escape ' for PowerShell single-quoted strings
   const ps =
-    `$s=(New-Object -ComObject WScript.Shell).CreateShortcut('${lnk}');` +
-    `$s.TargetPath='${process.execPath}';` +
-    `$s.WorkingDirectory='${baseDir}';` +
+    `$s=(New-Object -ComObject WScript.Shell).CreateShortcut('${psq(lnk)}');` +
+    `$s.TargetPath='${psq(process.execPath)}';` +
+    `$s.WorkingDirectory='${psq(baseDir)}';` +
     `$s.Save()`;
   const r = spawnSync('powershell', ['-NoProfile', '-Command', ps], { stdio: 'inherit' });
   console.log(r.status === 0 ? `autostart 등록됨: ${lnk}` : 'autostart 등록 실패');
