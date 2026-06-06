@@ -1,0 +1,18 @@
+{
+  "name": "discord-claude-bridge",
+  "version": "0.1.0",
+  "description": "Discord <-> local Claude (Claude Code) bridge: chat with your local Claude from a Discord channel and receive notifications back.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --env-file=.env src/index.js",
+    "dev": "node --env-file=.env --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=20.6"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.167",
+    "discord.js": "^14.26.4"
+  }
+}

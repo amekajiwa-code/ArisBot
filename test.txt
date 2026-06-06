@@ -1,0 +1,4 @@
+hello world!
+
+1. 연결하려는 프로젝트 폴더의 터미널에서 node C:\ClaudeNoritur\bin\link.js 실행 → 1회용 코드 출력
+  2. Discord에서 그 프로젝트로 쓸 채널에 !link <코드> 입력 → 봇 소유자 + 유효 코드 둘 다 있어야 연결됨

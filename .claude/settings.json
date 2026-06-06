@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node C:\\ClaudeNoritur\\.claude\\hooks\\notify.js" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node C:\\ClaudeNoritur\\.claude\\hooks\\notify.js" }
+        ]
+      }
+    ]
+  }
+}
