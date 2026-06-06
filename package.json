@@ -8,7 +8,9 @@
     "start": "node --env-file=.env src/index.js",
     "dev": "node --env-file=.env --watch src/index.js",
     "test": "node --test",
-    "build:exe": "node scripts/build-exe.mjs"
+    "build:exe": "node scripts/build-exe.mjs",
+    "build:zip": "node scripts/build-zip.mjs",
+    "build:release": "npm run build:exe && npm run build:zip"
   },
   "engines": {
     "node": ">=20.6"
