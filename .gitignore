@@ -1,6 +1,9 @@
 node_modules/
 .env
 *.log
+logs/
+아리스.png
+아리스.webp
 .claude/settings.local.json
 binding.json
 start_bot.exe
