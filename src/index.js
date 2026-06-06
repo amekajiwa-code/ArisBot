@@ -128,7 +128,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     await interaction.deferReply();
     try {
-      const msg = interaction.options.getString('message').slice(0, config.maxPrompt);
+      const msg = (interaction.options.getString('message') ?? '').slice(0, config.maxPrompt);
       const { text } = await askClaude(interaction.channelId, msg, config.projectDir, { model: config.model });
       const parts = splitMessage(text);
       await interaction.editReply({ content: parts[0] || '(빈 응답)' });
