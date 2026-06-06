@@ -1,6 +1,6 @@
 {
   "name": "discord-claude-bridge",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Discord <-> local Claude (Claude Code) bridge: chat with your local Claude from a Discord channel and receive notifications back.",
   "type": "module",
   "main": "src/index.js",
