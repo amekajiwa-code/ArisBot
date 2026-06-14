@@ -40,6 +40,8 @@
    | `PROJECT_DIR` | Claude가 작업할 프로젝트 폴더 절대경로 |
    | `NOTIFY_SECRET` _(선택)_ | 작업 완료 알림을 쓰려면 임의의 긴 문자열 |
    | `STEAM_ALERT_CHANNEL_ID` _(선택)_ | Steam 동접자 알림을 보낼 채널 id (아래 참고) |
+   | `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` _(선택)_ | Twitch 카테고리 라이브 알림용 앱 자격증명 (아래 참고) |
+   | `CHZZK_CLIENT_ID` / `CHZZK_CLIENT_SECRET` _(선택)_ | 치지직 카테고리 라이브 알림용 앱 자격증명 (아래 참고) |
 4. **`start_bot.exe` 더블클릭**으로 실행.
    - 콘솔 창은 뜨지 않고 트레이(숨겨진 아이콘)에 아리스 아이콘으로 동작한다. 로그는 `logs/bot.log` 에 쌓인다.
 5. 디스코드에서 원하는 채널에 `/start` → 채널 바인딩 + 알림 훅 설치.
@@ -98,6 +100,58 @@
 > https://steamdb.info/app/4398540/
 
 > 봇 재시작 직후 첫 조회는 기준선만 잡고 알림을 보내지 않는다(스팸 방지). 이후 `현재값 − 직전알림값 ≥ THRESHOLD` 이고 `현재값 ≥ MIN_COUNT` 이면 알림 후 기준선을 올린다. **동접이 줄면 알림 없이 기준선만 조용히 내려가**, 폭락 후 다시 오를 때 또 "돌파" 알림이 울린다.
+
+---
+
+## 📺 Twitch 카테고리 라이브 알림 (선택)
+
+특정 게임(카테고리)을 누군가 트위치에서 **방송 시작하면** 지정 채널로 `{채널이름}님이 {카테고리} 방송중!` 임베드(트위치 링크 포함)를 보낸다. Twitch 공식 Helix API를 주기적으로 조회하며, 직전 조회엔 없던 새 방송만 알린다.
+
+`.env`에 `TWITCH_CLIENT_ID` 와 `TWITCH_CLIENT_SECRET` 를 채우면 켜진다 (둘 다 비우면 꺼짐). 자격증명은 [Twitch 개발자 콘솔](https://dev.twitch.tv/console/apps)에서 앱을 **Client Type: Confidential** 로 등록하면 발급된다. (OAuth Redirect URL 칸은 `http://localhost` 같은 값을 아무거나 넣으면 되고, 이 방식에선 실제로 쓰지 않는다.)
+
+| 키 | 기본값 | 설명 |
+| --- | --- | --- |
+| `TWITCH_CLIENT_ID` | _(없음)_ | Twitch 앱 Client ID. 비우면 기능 꺼짐 |
+| `TWITCH_CLIENT_SECRET` | _(없음)_ | Twitch 앱 Client Secret. 비우면 기능 꺼짐 |
+| `TWITCH_CATEGORY_NAME` | `Deadly Trick` | 감시할 카테고리(게임) 이름 — 이름으로 game_id 자동 조회 |
+| `TWITCH_ALERT_CHANNEL_ID` | _(Steam 채널)_ | 알림 채널. 비우면 `STEAM_ALERT_CHANNEL_ID` 와 같은 채널 사용 |
+| `TWITCH_GAME_ID` | _(자동)_ | 이름 대신 game_id 를 직접 고정하고 싶을 때 |
+| `TWITCH_POLL_INTERVAL_SEC` | `600` | 폴링 주기(초) |
+| `TWITCH_ALERT_MIN_VIEWERS` | `0` | 시청자 이 수 이상인 방송만 알림 (0 = 전부) |
+
+알림 예시 (임베드):
+
+> **Twitch에서 OOO님이 Deadly Trick 방송중!**
+> (방송 제목)
+> https://www.twitch.tv/OOO
+
+> 봇 재시작 직후 첫 조회는 현재 라이브 목록을 기준선으로만 잡고 알림을 보내지 않는다(스팸 방지). 이후 새로 켜진 방송만 알린다. 방송을 껐다가 나중에 다시 켜면 또 알림이 온다.
+
+---
+
+## 🟢 치지직(CHZZK) 카테고리 라이브 알림 (선택)
+
+Twitch 알림과 같은 개념의 치지직 버전. `.env`에 `CHZZK_CLIENT_ID` 와 `CHZZK_CLIENT_SECRET` 를 채우면 켜진다(둘 다 비우면 꺼짐). 자격증명은 [치지직 개발자센터](https://developers.chzzk.naver.com)에서 앱을 등록해 발급한다. 알림 메시지는 `{채널이름}님이 {카테고리} 방송중!` 임베드(치지직 링크 포함)로, 직전 조회엔 없던 새 방송만 알린다.
+
+> [!WARNING]
+> **치지직 공식 Open API에는 "카테고리별 라이브 조회"가 없다.** 그래서 이 기능은 전체 라이브를 **시청자수 상위순으로 `CHZZK_MAX_PAGES`×20개**까지만 훑어 `CHZZK_CATEGORY_ID` 와 일치하는 방송을 찾는다. 즉 **시청자가 적은 소규모 카테고리(예: 신작 인디 게임)는 상위권에 안 떠서 놓칠 수 있다.** 더 깊게 찾으려면 `CHZZK_MAX_PAGES` 를 키우면 되지만 그만큼 매 폴링의 요청 수가 늘어난다.
+
+| 키 | 기본값 | 설명 |
+| --- | --- | --- |
+| `CHZZK_CLIENT_ID` | _(없음)_ | 치지직 앱 Client ID. 비우면 기능 꺼짐 |
+| `CHZZK_CLIENT_SECRET` | _(없음)_ | 치지직 앱 Client Secret. 비우면 기능 꺼짐 |
+| `CHZZK_CATEGORY_ID` | `Deadly_Trick` | 감시할 카테고리 식별자 — 카테고리 URL 마지막 경로 (`.../category/GAME/Deadly_Trick`) |
+| `CHZZK_CATEGORY_NAME` | `Deadly Trick` | 알림에 표시할 카테고리 이름 |
+| `CHZZK_ALERT_CHANNEL_ID` | _(Steam 채널)_ | 알림 채널. 비우면 `STEAM_ALERT_CHANNEL_ID` 와 같은 채널 사용 |
+| `CHZZK_POLL_INTERVAL_SEC` | `600` | 폴링 주기(초) |
+| `CHZZK_ALERT_MIN_VIEWERS` | `0` | 시청자 이 수 이상인 방송만 알림 (0 = 전부) |
+| `CHZZK_MAX_PAGES` | `10` | 매 폴링마다 훑을 라이브 페이지 수 (1페이지=20개) |
+
+알림 예시 (임베드):
+
+> **치지직에서 OOO님이 Deadly Trick 방송중!**
+> (방송 제목)
+> https://chzzk.naver.com/live/OOO
 
 ---
 

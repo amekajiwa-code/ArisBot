@@ -11,6 +11,10 @@ import { sendLong, withTyping, splitMessage } from './discord-utils.js';
 import { startNotifyServer } from './notify-server.js';
 import { startSteamWatch } from './steam-watch.js';
 import { fetchPlayerCount } from './steam.js';
+import { startTwitchWatch } from './twitch-watch.js';
+import { createTwitchClient } from './twitch.js';
+import { startChzzkWatch } from './chzzk-watch.js';
+import { createChzzkClient } from './chzzk.js';
 import { installNotifyHook } from './install-hook.js';
 import { binding } from './binding.js';
 import { isAuthorized } from './gate.js';
@@ -99,6 +103,88 @@ client.once(Events.ClientReady, async (c) => {
     );
   } else {
     console.log('[steam] disabled (set STEAM_ALERT_CHANNEL_ID to enable)');
+  }
+
+  if (config.twitchClientId && config.twitchClientSecret && config.twitchAlertChannelId) {
+    const twitch = createTwitchClient({
+      clientId: config.twitchClientId,
+      clientSecret: config.twitchClientSecret,
+    });
+    let gameId = config.twitchGameId;
+    if (!gameId) {
+      try {
+        gameId = await twitch.resolveGameId(config.twitchCategoryName);
+      } catch (e) {
+        console.error('[twitch] game id lookup failed:', e?.message ?? e);
+      }
+    }
+    if (gameId) {
+      startTwitchWatch({
+        fetchStreams: async () => {
+          try {
+            return await twitch.fetchStreams(gameId);
+          } catch (e) {
+            console.error('[twitch] fetch failed:', e?.message ?? e);
+            return null;
+          }
+        },
+        send: async (payload) => {
+          try {
+            const ch = await c.channels.fetch(config.twitchAlertChannelId);
+            if (ch) await ch.send(payload);
+          } catch (e) {
+            console.error('[twitch] send failed:', e?.message ?? e);
+          }
+        },
+        categoryName: config.twitchCategoryName,
+        minViewers: config.twitchAlertMinViewers,
+        platform: 'Twitch',
+        intervalMs: config.twitchPollIntervalSec * 1000,
+      });
+      console.log(
+        `[twitch] watching "${config.twitchCategoryName}" (game ${gameId}) → channel ${config.twitchAlertChannelId} ` +
+        `(every ${config.twitchPollIntervalSec}s, min ${config.twitchAlertMinViewers} viewers)`,
+      );
+    } else {
+      console.error(`[twitch] could not resolve game id for "${config.twitchCategoryName}" — alert disabled`);
+    }
+  } else {
+    console.log('[twitch] disabled (set TWITCH_CLIENT_ID + TWITCH_CLIENT_SECRET to enable)');
+  }
+
+  if (config.chzzkClientId && config.chzzkClientSecret && config.chzzkAlertChannelId) {
+    const chzzk = createChzzkClient({
+      clientId: config.chzzkClientId,
+      clientSecret: config.chzzkClientSecret,
+    });
+    startChzzkWatch({
+      fetchLives: async () => {
+        try {
+          return await chzzk.fetchCategoryLives(config.chzzkCategoryId, { maxPages: config.chzzkMaxPages });
+        } catch (e) {
+          console.error('[chzzk] fetch failed:', e?.message ?? e);
+          return null;
+        }
+      },
+      send: async (payload) => {
+        try {
+          const ch = await c.channels.fetch(config.chzzkAlertChannelId);
+          if (ch) await ch.send(payload);
+        } catch (e) {
+          console.error('[chzzk] send failed:', e?.message ?? e);
+        }
+      },
+      categoryName: config.chzzkCategoryName,
+      minViewers: config.chzzkAlertMinViewers,
+      platform: '치지직',
+      intervalMs: config.chzzkPollIntervalSec * 1000,
+    });
+    console.log(
+      `[chzzk] watching "${config.chzzkCategoryName}" (${config.chzzkCategoryId}) → channel ${config.chzzkAlertChannelId} ` +
+      `(every ${config.chzzkPollIntervalSec}s, scanning top ${config.chzzkMaxPages * 20} lives, min ${config.chzzkAlertMinViewers} viewers)`,
+    );
+  } else {
+    console.log('[chzzk] disabled (set CHZZK_CLIENT_ID + CHZZK_CLIENT_SECRET to enable)');
   }
 
   for (const guildId of c.guilds.cache.keys()) await registerToGuild(c.user.id, guildId);
