@@ -44,9 +44,15 @@ test('loadConfig: steam alert defaults (channel id absent → feature off)', () 
   const c = loadConfig(base);
   assert.equal(c.steamAlertChannelId, null);
   assert.equal(c.steamAppId, '4398540');
+  assert.equal(c.steamGameName, 'DEADLY TRICK DEMO');
   assert.equal(c.steamPollIntervalSec, 600);
   assert.equal(c.steamAlertThreshold, 5);
   assert.equal(c.steamAlertMinCount, 10);
+});
+
+test('loadConfig: STEAM_GAME_NAME overrides the default', () => {
+  const c = loadConfig({ ...base, STEAM_GAME_NAME: 'My Game' });
+  assert.equal(c.steamGameName, 'My Game');
 });
 
 test('loadConfig: steam alert values from env', () => {

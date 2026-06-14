@@ -38,6 +38,7 @@ export function loadConfig(env = process.env) {
     // Steam player-count alert (disabled unless STEAM_ALERT_CHANNEL_ID is set).
     steamAlertChannelId: env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
     steamAppId: env.STEAM_APP_ID?.trim() || '4398540',
+    steamGameName: env.STEAM_GAME_NAME?.trim() || 'DEADLY TRICK DEMO',
     steamPollIntervalSec: num('STEAM_POLL_INTERVAL_SEC', 600),
     steamAlertThreshold: num('STEAM_ALERT_THRESHOLD', 5),
     steamAlertMinCount: num('STEAM_ALERT_MIN_COUNT', 10),

@@ -79,16 +79,17 @@ client.once(Events.ClientReady, async (c) => {
   if (config.steamAlertChannelId) {
     startSteamWatch({
       fetchCount: () => fetchPlayerCount(config.steamAppId),
-      send: async (text) => {
+      send: async (payload) => {
         try {
           const ch = await c.channels.fetch(config.steamAlertChannelId);
-          if (ch) await ch.send(text);
+          if (ch) await ch.send(payload);
         } catch (e) {
           console.error('[steam] send failed:', e?.message ?? e);
         }
       },
       threshold: config.steamAlertThreshold,
       minCount: config.steamAlertMinCount,
+      gameName: config.steamGameName,
       appId: config.steamAppId,
       intervalMs: config.steamPollIntervalSec * 1000,
     });
