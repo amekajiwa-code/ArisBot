@@ -21,14 +21,26 @@ export function loadConfig(env = process.env) {
     throw new ConfigError(`PROJECT_DIR is not an existing directory: ${projectDir}`);
   }
 
+  // Parse an env var as a number, falling back to `fallback` when missing/NaN.
+  const num = (name, fallback) => {
+    const v = env[name]?.trim();
+    return v && Number.isFinite(Number(v)) ? Number(v) : fallback;
+  };
+
   return {
     discordToken,
     allowedUserId,
     projectDir,
     model: env.CLAUDE_MODEL?.trim() || undefined,
     notifySecret: env.NOTIFY_SECRET?.trim() || null,
-    notifyPort: Number.isFinite(Number(env.NOTIFY_PORT?.trim())) ? Number(env.NOTIFY_PORT.trim()) : 8787,
+    notifyPort: num('NOTIFY_PORT', 8787),
     maxPrompt: 4000,
+    // Steam player-count alert (disabled unless STEAM_ALERT_CHANNEL_ID is set).
+    steamAlertChannelId: env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
+    steamAppId: env.STEAM_APP_ID?.trim() || '4398540',
+    steamPollIntervalSec: num('STEAM_POLL_INTERVAL_SEC', 600),
+    steamAlertThreshold: num('STEAM_ALERT_THRESHOLD', 5),
+    steamAlertMinCount: num('STEAM_ALERT_MIN_COUNT', 10),
   };
 }
 

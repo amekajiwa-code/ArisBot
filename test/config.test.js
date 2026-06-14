@@ -39,3 +39,40 @@ test('loadConfig guards NOTIFY_PORT against NaN', () => {
   const with9000 = loadConfig({ ...base, NOTIFY_PORT: '9000' });
   assert.equal(with9000.notifyPort, 9000);
 });
+
+test('loadConfig: steam alert defaults (channel id absent → feature off)', () => {
+  const c = loadConfig(base);
+  assert.equal(c.steamAlertChannelId, null);
+  assert.equal(c.steamAppId, '4398540');
+  assert.equal(c.steamPollIntervalSec, 600);
+  assert.equal(c.steamAlertThreshold, 5);
+  assert.equal(c.steamAlertMinCount, 10);
+});
+
+test('loadConfig: steam alert values from env', () => {
+  const c = loadConfig({
+    ...base,
+    STEAM_ALERT_CHANNEL_ID: '1512696743286931617',
+    STEAM_APP_ID: '730',
+    STEAM_POLL_INTERVAL_SEC: '120',
+    STEAM_ALERT_THRESHOLD: '3',
+    STEAM_ALERT_MIN_COUNT: '50',
+  });
+  assert.equal(c.steamAlertChannelId, '1512696743286931617');
+  assert.equal(c.steamAppId, '730');
+  assert.equal(c.steamPollIntervalSec, 120);
+  assert.equal(c.steamAlertThreshold, 3);
+  assert.equal(c.steamAlertMinCount, 50);
+});
+
+test('loadConfig: steam numeric vars fall back to defaults when not a number', () => {
+  const c = loadConfig({
+    ...base,
+    STEAM_POLL_INTERVAL_SEC: 'abc',
+    STEAM_ALERT_THRESHOLD: '',
+    STEAM_ALERT_MIN_COUNT: 'x',
+  });
+  assert.equal(c.steamPollIntervalSec, 600);
+  assert.equal(c.steamAlertThreshold, 5);
+  assert.equal(c.steamAlertMinCount, 10);
+});

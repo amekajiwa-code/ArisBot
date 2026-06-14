@@ -9,6 +9,8 @@ import { getConfig } from './config.js';
 import { askClaude } from './claude.js';
 import { sendLong, withTyping, splitMessage } from './discord-utils.js';
 import { startNotifyServer } from './notify-server.js';
+import { startSteamWatch } from './steam-watch.js';
+import { fetchPlayerCount } from './steam.js';
 import { installNotifyHook } from './install-hook.js';
 import { binding } from './binding.js';
 import { isAuthorized } from './gate.js';
@@ -72,6 +74,30 @@ client.once(Events.ClientReady, async (c) => {
     });
   } else {
     console.log('[notify] disabled (set NOTIFY_SECRET to enable)');
+  }
+
+  if (config.steamAlertChannelId) {
+    startSteamWatch({
+      fetchCount: () => fetchPlayerCount(config.steamAppId),
+      send: async (text) => {
+        try {
+          const ch = await c.channels.fetch(config.steamAlertChannelId);
+          if (ch) await ch.send(text);
+        } catch (e) {
+          console.error('[steam] send failed:', e?.message ?? e);
+        }
+      },
+      threshold: config.steamAlertThreshold,
+      minCount: config.steamAlertMinCount,
+      appId: config.steamAppId,
+      intervalMs: config.steamPollIntervalSec * 1000,
+    });
+    console.log(
+      `[steam] watching app ${config.steamAppId} → channel ${config.steamAlertChannelId} ` +
+      `(every ${config.steamPollIntervalSec}s, ±${config.steamAlertThreshold}, min ${config.steamAlertMinCount})`,
+    );
+  } else {
+    console.log('[steam] disabled (set STEAM_ALERT_CHANNEL_ID to enable)');
   }
 
   for (const guildId of c.guilds.cache.keys()) await registerToGuild(c.user.id, guildId);
