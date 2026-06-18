@@ -1,0 +1,24 @@
+[Unit]
+Description=ArisBot — Discord notification bot
+Documentation=https://github.com/amekajiwa-code/ArisBot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 봇을 둘 위치. clone/배포 경로에 맞춰 수정하세요.
+WorkingDirectory=/opt/arisbot
+# Node 경로는 `which node` 결과로 맞추세요 (nvm 사용 시 절대경로 필요).
+ExecStart=/usr/bin/node --env-file=.env src/index.js
+Restart=always
+RestartSec=5
+# 봇 전용 시스템 유저로 실행 (아래 README의 useradd 참고).
+User=arisbot
+# 로그는 journald 로 (journalctl -u arisbot -f 로 확인).
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=arisbot
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

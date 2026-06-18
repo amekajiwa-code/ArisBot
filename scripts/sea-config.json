@@ -1,5 +1,0 @@
-{
-  "main": "scripts/launcher.cjs",
-  "output": "scripts/sea-prep.blob",
-  "disableExperimentalSEAWarning": true
-}
