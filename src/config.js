@@ -23,8 +23,8 @@ export function loadConfig(env = process.env) {
     discordToken,
     // Steam player-count alert (disabled unless STEAM_ALERT_CHANNEL_ID is set).
     steamAlertChannelId: env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
-    steamAppId: env.STEAM_APP_ID?.trim() || '4398540',
-    steamGameName: env.STEAM_GAME_NAME?.trim() || 'DEADLY TRICK DEMO',
+    steamAppId: env.STEAM_APP_ID?.trim() || '3088400',
+    steamGameName: env.STEAM_GAME_NAME?.trim() || 'Deadly Trick',
     steamPollIntervalSec: num('STEAM_POLL_INTERVAL_SEC', 600),
     steamAlertThreshold: num('STEAM_ALERT_THRESHOLD', 5),
     steamAlertMinCount: num('STEAM_ALERT_MIN_COUNT', 10),
@@ -37,7 +37,7 @@ export function loadConfig(env = process.env) {
     twitchCategoryName: env.TWITCH_CATEGORY_NAME?.trim() || 'Deadly Trick',
     twitchGameId: env.TWITCH_GAME_ID?.trim() || null,
     twitchPollIntervalSec: num('TWITCH_POLL_INTERVAL_SEC', 600),
-    twitchAlertMinViewers: num('TWITCH_ALERT_MIN_VIEWERS', 0),
+    twitchAlertMinViewers: num('TWITCH_ALERT_MIN_VIEWERS', 100),
     // CHZZK(치지직) category live alert (disabled unless CHZZK_CLIENT_ID + CHZZK_CLIENT_SECRET are set).
     // Official Open API has no category filter, so it scans the top CHZZK_MAX_PAGES×20 lives.
     chzzkClientId: env.CHZZK_CLIENT_ID?.trim() || null,
@@ -47,8 +47,8 @@ export function loadConfig(env = process.env) {
     chzzkCategoryId: env.CHZZK_CATEGORY_ID?.trim() || 'Deadly_Trick',
     chzzkCategoryName: env.CHZZK_CATEGORY_NAME?.trim() || 'Deadly Trick',
     chzzkPollIntervalSec: num('CHZZK_POLL_INTERVAL_SEC', 600),
-    chzzkAlertMinViewers: num('CHZZK_ALERT_MIN_VIEWERS', 0),
-    chzzkMaxPages: num('CHZZK_MAX_PAGES', 10),
+    chzzkAlertMinViewers: num('CHZZK_ALERT_MIN_VIEWERS', 100),
+    chzzkMaxPages: num('CHZZK_MAX_PAGES', 15),
   };
 }
 
