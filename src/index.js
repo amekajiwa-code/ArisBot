@@ -1,8 +1,9 @@
 // ArisBot — Discord notification-only bot (cloud edition).
 //
-// Logs into Discord and polls Steam / Twitch / CHZZK on a timer, pushing an
-// embed to the configured channel when something changes. No slash commands,
-// no message handling, no HTTP server — so no privileged intents are needed.
+// Logs into Discord and polls Steam / Twitch / CHZZK / YouTube on a timer,
+// pushing an embed to the configured channel when something changes. No slash
+// commands, no message handling, no HTTP server — so no privileged intents are
+// needed.
 
 import { Client, GatewayIntentBits, Events } from 'discord.js';
 import { getConfig } from './config.js';
@@ -12,6 +13,8 @@ import { startTwitchWatch } from './twitch-watch.js';
 import { createTwitchClient } from './twitch.js';
 import { startChzzkWatch } from './chzzk-watch.js';
 import { createChzzkClient } from './chzzk.js';
+import { startYouTubeWatch } from './youtube-watch.js';
+import { createYouTubeClient } from './youtube.js';
 
 const config = getConfig();
 
@@ -125,8 +128,42 @@ client.once(Events.ClientReady, async (c) => {
     console.log('[chzzk] disabled (set CHZZK_CLIENT_ID + CHZZK_CLIENT_SECRET to enable)');
   }
 
+  if (config.youtubeApiKey && config.youtubeAlertChannelId) {
+    anyEnabled = true;
+    const youtube = createYouTubeClient({ apiKey: config.youtubeApiKey });
+    startYouTubeWatch({
+      fetchLives: async () => {
+        try {
+          return await youtube.fetchLives(config.youtubeSearchQuery);
+        } catch (e) {
+          console.error('[youtube] fetch failed:', e?.message ?? e);   // 403 quotaExceeded lands here too
+          return null;
+        }
+      },
+      send: makeSender(c, config.youtubeAlertChannelId, 'youtube'),
+      categoryName: config.youtubeCategoryName,
+      minViewers: config.youtubeAlertMinViewers,
+      matchTerms: config.youtubeMatchTerms,
+      platform: 'YouTube',
+      intervalMs: config.youtubePollIntervalSec * 1000,
+    });
+    console.log(
+      `[youtube] watching ${config.youtubeSearchQuery} → channel ${config.youtubeAlertChannelId} ` +
+      `(every ${config.youtubePollIntervalSec}s, min ${config.youtubeAlertMinViewers} viewers)`,
+    );
+    // search.list allows 100 calls/day; anything under 900s burns the quota before midnight (PT).
+    if (config.youtubePollIntervalSec < 900) {
+      console.warn(
+        `[youtube] ⚠️ ${config.youtubePollIntervalSec}s 주기는 하루 ${Math.ceil(86400 / config.youtubePollIntervalSec)}회 ` +
+        '검색 → search.list 한도(100회/일) 초과. YOUTUBE_POLL_INTERVAL_SEC 를 900 이상으로 두세요.',
+      );
+    }
+  } else {
+    console.log('[youtube] disabled (set YOUTUBE_API_KEY to enable)');
+  }
+
   if (!anyEnabled) {
-    console.warn('[bridge] ⚠️ no alert sources enabled — set at least one of STEAM/TWITCH/CHZZK in .env');
+    console.warn('[bridge] ⚠️ no alert sources enabled — set at least one of STEAM/TWITCH/CHZZK/YOUTUBE in .env');
   }
   console.log('[bridge] ready');
 });

@@ -120,6 +120,50 @@ test('loadConfig: CHZZK_ALERT_CHANNEL_ID overrides the steam fallback', () => {
   assert.equal(c.chzzkAlertChannelId, '222');
 });
 
+test('loadConfig: youtube alert defaults (no api key → feature off)', () => {
+  const c = loadConfig(base);
+  assert.equal(c.youtubeApiKey, null);
+  assert.equal(c.youtubeAlertChannelId, null);
+  assert.equal(c.youtubeSearchQuery, '"Deadly Trick"|"데들리 트릭"|"デッドリートリック"');
+  assert.deepEqual(c.youtubeMatchTerms, ['Deadly Trick', '데들리 트릭', 'デッドリートリック']);
+  assert.equal(c.youtubeCategoryName, 'Deadly Trick');
+  assert.equal(c.youtubePollIntervalSec, 900);
+  assert.equal(c.youtubeAlertMinViewers, 50);
+});
+
+test('loadConfig: youtube alert channel falls back to the steam channel when unset', () => {
+  const c = loadConfig({ ...base, STEAM_ALERT_CHANNEL_ID: '999' });
+  assert.equal(c.youtubeAlertChannelId, '999');
+});
+
+test('loadConfig: YOUTUBE_ALERT_CHANNEL_ID overrides the steam fallback', () => {
+  const c = loadConfig({ ...base, STEAM_ALERT_CHANNEL_ID: '999', YOUTUBE_ALERT_CHANNEL_ID: '333' });
+  assert.equal(c.youtubeAlertChannelId, '333');
+});
+
+test('loadConfig: youtube alert values from env', () => {
+  const c = loadConfig({
+    ...base,
+    YOUTUBE_API_KEY: 'ykey',
+    YOUTUBE_SEARCH_QUERY: '"Among Us"',
+    YOUTUBE_MATCH_TERMS: 'Among Us, 어몽어스',
+    YOUTUBE_CATEGORY_NAME: 'Among Us',
+    YOUTUBE_POLL_INTERVAL_SEC: '1200',
+    YOUTUBE_ALERT_MIN_VIEWERS: '3',
+  });
+  assert.equal(c.youtubeApiKey, 'ykey');
+  assert.equal(c.youtubeSearchQuery, '"Among Us"');
+  assert.deepEqual(c.youtubeMatchTerms, ['Among Us', '어몽어스'], 'trims whitespace around commas');
+  assert.equal(c.youtubeCategoryName, 'Among Us');
+  assert.equal(c.youtubePollIntervalSec, 1200);
+  assert.equal(c.youtubeAlertMinViewers, 3);
+});
+
+test('loadConfig: an empty YOUTUBE_MATCH_TERMS disables the keyword filter', () => {
+  const c = loadConfig({ ...base, YOUTUBE_MATCH_TERMS: '  ' });
+  assert.deepEqual(c.youtubeMatchTerms, []);
+});
+
 test('loadConfig: chzzk alert values from env', () => {
   const c = loadConfig({
     ...base,

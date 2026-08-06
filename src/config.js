@@ -4,6 +4,14 @@
 
 export class ConfigError extends Error {}
 
+// Game name as streamers actually type it — YouTube search phrases (| = OR) and the
+// keyword list that re-checks each hit's title/description.
+const YT_DEFAULT_QUERY = '"Deadly Trick"|"데들리 트릭"|"デッドリートリック"';
+const YT_DEFAULT_TERMS = 'Deadly Trick,데들리 트릭,デッドリートリック';
+
+/** "a, b , " → ["a", "b"] */
+const csv = (s) => s.split(',').map((x) => x.trim()).filter(Boolean);
+
 export function loadConfig(env = process.env) {
   const required = (name, hint) => {
     const v = env[name]?.trim();
@@ -49,6 +57,17 @@ export function loadConfig(env = process.env) {
     chzzkPollIntervalSec: num('CHZZK_POLL_INTERVAL_SEC', 600),
     chzzkAlertMinViewers: num('CHZZK_ALERT_MIN_VIEWERS', 50),
     chzzkMaxPages: num('CHZZK_MAX_PAGES', 15),
+    // YouTube live alert (disabled unless YOUTUBE_API_KEY is set).
+    // search.list is capped at 100 calls/day, hence the 900s default interval.
+    youtubeApiKey: env.YOUTUBE_API_KEY?.trim() || null,
+    youtubeAlertChannelId:
+      env.YOUTUBE_ALERT_CHANNEL_ID?.trim() || env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
+    youtubeSearchQuery: env.YOUTUBE_SEARCH_QUERY?.trim() || YT_DEFAULT_QUERY,
+    // Set but blank ⇒ filter off, so an explicit "" must not fall back to the default.
+    youtubeMatchTerms: csv(env.YOUTUBE_MATCH_TERMS ?? YT_DEFAULT_TERMS),
+    youtubeCategoryName: env.YOUTUBE_CATEGORY_NAME?.trim() || 'Deadly Trick',
+    youtubePollIntervalSec: num('YOUTUBE_POLL_INTERVAL_SEC', 900),
+    youtubeAlertMinViewers: num('YOUTUBE_ALERT_MIN_VIEWERS', 50),
   };
 }
 
