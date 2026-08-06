@@ -22,7 +22,7 @@ test('loadConfig: steam alert defaults (channel id absent → feature off)', () 
   assert.equal(c.steamAppId, '3088400');
   assert.equal(c.steamGameName, 'Deadly Trick');
   assert.equal(c.steamPollIntervalSec, 600);
-  assert.equal(c.steamAlertThreshold, 5);
+  assert.equal(c.steamAlertThreshold, 25);
   assert.equal(c.steamAlertMinCount, 10);
 });
 
@@ -55,7 +55,7 @@ test('loadConfig: steam numeric vars fall back to defaults when not a number', (
     STEAM_ALERT_MIN_COUNT: 'x',
   });
   assert.equal(c.steamPollIntervalSec, 600);
-  assert.equal(c.steamAlertThreshold, 5);
+  assert.equal(c.steamAlertThreshold, 25);
   assert.equal(c.steamAlertMinCount, 10);
 });
 
@@ -67,7 +67,7 @@ test('loadConfig: twitch alert defaults (no credentials → feature off)', () =>
   assert.equal(c.twitchCategoryName, 'Deadly Trick');
   assert.equal(c.twitchGameId, null);
   assert.equal(c.twitchPollIntervalSec, 600);
-  assert.equal(c.twitchAlertMinViewers, 100);
+  assert.equal(c.twitchAlertMinViewers, 50);
 });
 
 test('loadConfig: twitch alert channel falls back to the steam channel when unset', () => {
@@ -106,7 +106,7 @@ test('loadConfig: chzzk alert defaults (no credentials → feature off)', () => 
   assert.equal(c.chzzkCategoryId, 'Deadly_Trick');
   assert.equal(c.chzzkCategoryName, 'Deadly Trick');
   assert.equal(c.chzzkPollIntervalSec, 600);
-  assert.equal(c.chzzkAlertMinViewers, 100);
+  assert.equal(c.chzzkAlertMinViewers, 50);
   assert.equal(c.chzzkMaxPages, 15);
 });
 
