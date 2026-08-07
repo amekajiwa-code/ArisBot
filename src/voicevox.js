@@ -6,57 +6,13 @@
 // 1번 결과를 중간에 손볼 수 있어서 속도·음높이를 여기서 끼워 넣는다.
 //
 // AudioQuery의 outputSamplingRate/outputStereo를 디스코드가 쓰는 48kHz 스테레오로
-// 지정하면 엔진이 곧바로 그 포맷으로 구워 준다. 덕분에 WAV 헤더만 벗기면 되고
-// ffmpeg으로 재인코딩할 필요가 없다 — e2-micro 같은 작은 VM에서 특히 이득이다.
+// 지정하면 엔진이 곧바로 그 포맷으로 구워 준다. 덕분에 리샘플링도 ffmpeg 재인코딩도
+// 필요 없다 — e2-micro 같은 작은 VM에서 특히 이득이다.
+//
+// 한글은 이 엔진이 못 읽으므로 hangul-kana.js가 가타카나로 음차한 뒤에 넘어온다.
 
-/** 디스코드 음성이 요구하는 PCM 포맷. */
-export const DISCORD_SAMPLE_RATE = 48000;
-export const DISCORD_CHANNELS = 2;
-
-/**
- * RIFF/WAVE 버퍼에서 PCM 본문만 떼어낸다.
- * data 청크의 위치가 고정이라고 가정하지 않고 청크를 훑는다 — 엔진이 LIST 같은
- * 부가 청크를 끼워 넣으면 오프셋 44 가정이 깨지기 때문이다.
- * @param {Buffer} buf
- * @returns {Buffer} s16le PCM
- */
-export function extractPcm(buf) {
-  if (buf.length < 12 || buf.toString('ascii', 0, 4) !== 'RIFF' || buf.toString('ascii', 8, 12) !== 'WAVE') {
-    throw new Error('VOICEVOX 응답이 WAV가 아닙니다');
-  }
-
-  let format = null;
-  let offset = 12;
-  while (offset + 8 <= buf.length) {
-    const id = buf.toString('ascii', offset, offset + 4);
-    const size = buf.readUInt32LE(offset + 4);
-    const body = offset + 8;
-
-    if (id === 'fmt ' && size >= 16) {
-      format = {
-        channels: buf.readUInt16LE(body + 2),
-        sampleRate: buf.readUInt32LE(body + 4),
-        bitsPerSample: buf.readUInt16LE(body + 14),
-      };
-    } else if (id === 'data') {
-      // 엔진이 outputSamplingRate/outputStereo를 무시했다면 여기서 잡아야 한다.
-      // 안 그러면 재생 속도만 이상해져서 원인을 찾기 어렵다.
-      if (format && (format.sampleRate !== DISCORD_SAMPLE_RATE
-        || format.channels !== DISCORD_CHANNELS
-        || format.bitsPerSample !== 16)) {
-        throw new Error(
-          `VOICEVOX가 예상과 다른 포맷을 돌려줬습니다 `
-          + `(${format.sampleRate}Hz ${format.channels}ch ${format.bitsPerSample}bit — `
-          + `${DISCORD_SAMPLE_RATE}Hz ${DISCORD_CHANNELS}ch 16bit이어야 함)`,
-        );
-      }
-      return buf.subarray(body, Math.min(body + size, buf.length));
-    }
-
-    offset = body + size + (size % 2); // 청크는 짝수 바이트로 정렬된다
-  }
-  throw new Error('WAV에 data 청크가 없습니다');
-}
+import { parseWav } from './wav.js';
+import { toDiscordPcm, DISCORD_SAMPLE_RATE } from './pcm.js';
 
 /**
  * @param {object} opts
@@ -118,7 +74,9 @@ export function createVoicevoxClient({
         }),
       });
 
-      return extractPcm(Buffer.from(await audioRes.arrayBuffer()));
+      // 요청대로 48kHz 스테레오가 오면 toDiscordPcm은 그대로 통과시킨다.
+      // 엔진이 무시하더라도 소리가 이상해지는 대신 여기서 맞춰진다.
+      return toDiscordPcm(parseWav(Buffer.from(await audioRes.arrayBuffer())));
     },
   };
 }

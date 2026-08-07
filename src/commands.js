@@ -5,7 +5,6 @@
 // 접두사 모드만 예외로 Message Content 인텐트를 요구하므로 기본으로 꺼져 있다.
 
 import { ApplicationCommandOptionType, MessageFlags, PermissionFlagsBits } from 'discord.js';
-import { prepareSpeech } from './speech-text.js';
 
 const ZUNDA_COLOR = 0x5fbf7f; // 즌다몬의 풋콩 초록
 
@@ -35,27 +34,36 @@ export const COMMANDS = [
  * 말할 수 있는 상황인지 따지고, 말할 내용을 확정한다. 디스코드 객체를 받지 않는
  * 순수 함수 — 실패 사유가 곧 사용자에게 보여 줄 문구다.
  *
- * @returns {{ok: false, message: string} | {ok: true, clean: string, kana: string, truncated: boolean}}
+ * 텍스트를 어떻게 다듬을지는 엔진마다 달라서(음차하느냐 마느냐) prepare를 받아 쓴다.
+ *
+ * @returns {{ok: false, message: string} | {ok: true, clean: string, spoken: string, truncated: boolean}}
  */
-export function planSay({ inGuild, inVoiceChannel, canConnect, canSpeak, text, maxLength }) {
+export function planSay({ inGuild, inVoiceChannel, canConnect, canSpeak, text, maxLength, prepare }) {
   if (!inGuild) return { ok: false, message: '서버 안에서만 쓸 수 있어요.' };
   if (!inVoiceChannel) return { ok: false, message: '먼저 음성 채널에 들어가 주세요. 즌다몬이 따라 들어갑니다.' };
   if (!canConnect || !canSpeak) {
     return { ok: false, message: '그 음성 채널에 들어가거나 말할 권한이 없어요. (연결 · 말하기 권한 필요)' };
   }
 
-  const speech = prepareSpeech(text, { maxLength });
-  if (!speech.kana) return { ok: false, message: '읽을 만한 내용이 없어요.' };
+  const speech = prepare(text, { maxLength });
+  if (!speech.spoken) return { ok: false, message: '읽을 만한 내용이 없어요.' };
   return { ok: true, ...speech };
 }
 
-/** 무엇을 어떻게 읽었는지 보여 주는 임베드. 가나를 같이 띄우면 발음이 왜 그런지 바로 보인다. */
-function sayEmbed({ clean, kana, truncated }, speakerName) {
+/**
+ * 무엇을 어떻게 읽었는지 보여 주는 임베드.
+ * 엔진에 넘어간 글이 원문과 다를 때(= 가타카나로 음차했을 때)만 아래에 같이 띄운다.
+ * 발음이 이상하면 왜 그런지 바로 보이라고. GPT-SoVITS는 원문 그대로라 뜨지 않는다.
+ */
+function sayEmbed({ clean, spoken, truncated }, speakerName) {
+  const notes = [];
+  if (spoken !== clean) notes.push(spoken);
+  if (truncated) notes.push('(길어서 잘랐어요)');
   return {
     color: ZUNDA_COLOR,
     author: { name: `🗣️ ${speakerName}` },
     description: clean,
-    footer: { text: truncated ? `${kana} (길어서 잘랐어요)` : kana },
+    ...(notes.length ? { footer: { text: notes.join(' ') } } : {}),
   };
 }
 
@@ -76,7 +84,7 @@ function voicePermissions(channel, botUser) {
  * @param {{speak: Function, leave: Function}} opts.sessions
  * @param {number} opts.maxLength
  */
-export function createInteractionHandler({ sessions, maxLength }) {
+export function createInteractionHandler({ sessions, backend, maxLength }) {
   return async function handleInteraction(interaction) {
     if (!interaction.isChatInputCommand()) return;
 
@@ -96,6 +104,7 @@ export function createInteractionHandler({ sessions, maxLength }) {
         ...voicePermissions(channel, interaction.client.user),
         text: interaction.options.getString('text'),
         maxLength,
+        prepare: backend.prepare,
       });
       if (!plan.ok) {
         await interaction.reply(ephemeral(plan.message));
@@ -107,7 +116,7 @@ export function createInteractionHandler({ sessions, maxLength }) {
       await interaction.reply({ embeds: [sayEmbed(plan, interaction.member.displayName)] });
 
       try {
-        await sessions.speak(channel, plan.kana);
+        await sessions.speak(channel, plan.spoken);
       } catch (e) {
         console.error('[tts] speak failed:', e?.message ?? e);
         await interaction.followUp(ephemeral(`❌ 말하지 못했어요: ${e?.message ?? e}`)).catch(() => {});
@@ -122,7 +131,7 @@ export function createInteractionHandler({ sessions, maxLength }) {
  * "say: 안녕" 형태의 메시지 접두사 핸들러.
  * Message Content 인텐트가 필요하므로 config에서 명시적으로 켰을 때만 등록한다.
  */
-export function createMessageHandler({ sessions, maxLength, prefix }) {
+export function createMessageHandler({ sessions, backend, maxLength, prefix }) {
   const lower = prefix.toLowerCase();
 
   return async function handleMessage(message) {
@@ -136,6 +145,7 @@ export function createMessageHandler({ sessions, maxLength, prefix }) {
         ...voicePermissions(channel, message.client.user),
         text: message.content.slice(prefix.length),
         maxLength,
+        prepare: backend.prepare,
       });
       if (!plan.ok) {
         await message.reply(plan.message).catch(() => {});
@@ -144,7 +154,7 @@ export function createMessageHandler({ sessions, maxLength, prefix }) {
 
       // 접두사 모드는 채널을 덜 어지럽히도록 임베드 대신 반응만 남긴다.
       await message.react('🗣️').catch(() => {});
-      await sessions.speak(channel, plan.kana);
+      await sessions.speak(channel, plan.spoken);
     } catch (e) {
       console.error('[tts] message error:', e?.message ?? e);
       await message.reply(`❌ 말하지 못했어요: ${e?.message ?? e}`).catch(() => {});

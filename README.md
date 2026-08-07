@@ -1,7 +1,7 @@
 # 🤖 ArisBot
 
 > Steam 동접자 · Twitch · 치지직 · YouTube(VTuber) 카테고리 라이브를 감시해 Discord 채널로 알려주는 봇.
-> 덤으로 **즌다몬이 한국어를 읽어 주는 TTS**(`/say`)가 붙어 있다.
+> 덤으로 **즌다몬이 한국어로 말해 주는 TTS**(`/say`)가 붙어 있다.
 > 클라우드 VM(예: Google Cloud `e2-micro`, Ubuntu)에서 24시간 구동한다.
 
 <p align="center">
@@ -39,11 +39,43 @@
 | `/say <내용>` | 음성 채널에서 그 내용을 즌다몬 목소리로 읽는다 |
 | `/leave` | 음성 채널에서 나간다 (`TTS_IDLE_TIMEOUT_SEC` 동안 조용하면 알아서도 나간다) |
 
-### 한국어를 어떻게 읽는가
+### 엔진 두 가지 — 한국어를 대하는 방식이 다르다
+
+| | **GPT-SoVITS** (권장) | **VOICEVOX** |
+| --- | --- | --- |
+| 한국어 | **진짜 한국어 발음** (다국어 모델) | 가타카나로 음차 → "일본인이 읽는 한국어" |
+| 필요한 것 | **GPU** (CUDA), 수 GB 모델 | CPU만, 램 2GB |
+| 합성 속도 | 문장당 수 초 | 빠름 |
+| 설정 | `GPT_SOVITS_BASE_URL` | `VOICEVOX_BASE_URL` |
+
+둘 다 채우면 GPT-SoVITS가 선택된다. GPU가 없으면 VOICEVOX 쪽이 유일한 선택지다.
+
+#### GPT-SoVITS — 진짜 한국어
+
+[zundamon-speech-webui](https://github.com/zunzun999/zundamon-speech-webui)가 GPT-SoVITS를 즌다몬 목소리로 파인튜닝해 놓은 걸 쓴다. GPT-SoVITS v2는 한국어(`all_ko`)를 지원하므로 **한글을 음차 없이 그대로 넘기면 제대로 된 한국어 발음이 나온다.**
+
+먼저 위 저장소의 안내대로 모델을 내려받은 뒤, WebUI 대신 동봉된 **API 서버**를 띄운다.
+
+```bash
+# zundamon-speech-webui/GPT-SoVITS 에서
+python api_v2.py -a 0.0.0.0 -p 9880
+```
+
+이 모델은 few-shot 음성 복제 방식이라 **참조 음성이 있어야 목소리가 정해진다.** 저장소의 `reference/reference.wav`와 그 안의 대사(`reference/ref_text.txt`)를 그대로 쓰면 된다. 경로는 **봇이 아니라 API 서버 쪽 파일 시스템 기준**이다.
+
+```bash
+GPT_SOVITS_BASE_URL=http://192.168.0.10:9880
+GPT_SOVITS_REF_AUDIO_PATH=/path/to/zundamon-speech-webui/reference/reference.wav
+GPT_SOVITS_PROMPT_TEXT=流し切りが完全に入ればデバフの効果が付与される
+```
+
+> ℹ️ 영어 낱말이 섞인 문장이 많으면 `GPT_SOVITS_TEXT_LANG=ko`(한영 혼용)로 두면 된다. 기본값은 `all_ko`.
+
+#### VOICEVOX — GPU 없이
 
 > ⚠️ **VOICEVOX는 일본어 전용 엔진이다.** 한글을 그대로 넘기면 한 글자도 못 읽는다.
 
-그래서 봇이 한글을 **가타카나로 음차해서** 넘긴다. 일본어에 없는 대립(ㅓ/ㅗ, ㅡ/ㅜ, ㄴ받침/ㅇ받침)은 한쪽으로 뭉개지므로 "일본인이 한국어를 읽는" 발음이 난다 — 그게 이 기능의 취지다.
+그래서 봇이 한글을 **가타카나로 음차해서** 넘긴다. 일본어에 없는 대립(ㅓ/ㅗ, ㅡ/ㅜ, ㄴ받침/ㅇ받침)은 한쪽으로 뭉개지므로 발음이 어눌하다.
 
 다만 철자를 그대로 읽으면 알아들을 수조차 없어서, 회화에서 늘 발동하는 음운 규칙 넷은 적용한다.
 
@@ -56,10 +88,6 @@
 
 ㄹ비음화(종로 → 종노)와 구개음화(굳이 → 구지)는 구현 범위 밖이라 철자대로 읽힌다.
 
-`/say`의 응답 임베드 아래쪽에 실제로 넘어간 가나가 같이 뜨므로, 발음이 이상하면 왜 그런지 바로 보인다.
-
-### VOICEVOX ENGINE 띄우기
-
 엔진은 별도 프로세스다. 도커가 제일 간단하다.
 
 ```bash
@@ -67,15 +95,17 @@ docker run -d --restart unless-stopped -p 127.0.0.1:50021:50021 \
   --name voicevox voicevox/voicevox_engine:cpu-latest
 ```
 
-그리고 `.env`에 주소를 적는다.
-
 ```bash
 VOICEVOX_BASE_URL=http://127.0.0.1:50021
 ```
 
-> ⚠️ **엔진이 메모리를 2GB 남짓 먹는다. `e2-micro`(1GB)에는 안 올라간다.** 알림 봇과 같은 VM에 두려면 인스턴스를 키우고, 그러기 싫으면 엔진만 다른 호스트(집 PC 등)에 두고 그 주소를 적으면 된다. 알림 기능만 쓸 거면 `VOICEVOX_BASE_URL`을 비워두면 그만이다.
+음차한 결과는 `/say` 응답 임베드 아래에 같이 뜨므로, 발음이 이상하면 왜 그런지 바로 보인다. (GPT-SoVITS는 원문 그대로 읽으니 뜨지 않는다.)
+
+#### 어느 쪽이든
+
+> ⚠️ **엔진은 `e2-micro`(1GB)에 안 올라간다.** VOICEVOX는 램 2GB 남짓, GPT-SoVITS는 GPU까지 필요하다. 알림 봇과 같은 VM에 두려면 인스턴스를 키우고, 그러기 싫으면 엔진만 다른 호스트(집 PC 등)에 두고 그 주소를 적으면 된다. 알림 기능만 쓸 거면 두 URL을 다 비워두면 그만이다.
 >
-> ℹ️ **ffmpeg은 필요 없다.** 엔진에 디스코드가 쓰는 48kHz 스테레오로 바로 구워 달라고 요청해서 WAV 헤더만 벗겨 넘기기 때문이다. Opus 인코더도 순수 JS(`opusscript`)라 네이티브 빌드 단계가 없다.
+> ℹ️ **봇 쪽에 ffmpeg은 필요 없다.** VOICEVOX에는 디스코드가 쓰는 48kHz 스테레오로 바로 구워 달라고 요청하고, GPT-SoVITS가 주는 32kHz 모노는 봇이 직접 리샘플한다. Opus 인코더도 순수 JS(`opusscript`)라 네이티브 빌드 단계가 없다.
 
 ### 봇 초대 권한
 
@@ -127,7 +157,8 @@ nano .env                  # 아래 표를 보고 채우기
 | `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` _(선택)_ | 둘 다 채우면 Twitch 알림 켜짐 ([dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps), Confidential 앱) |
 | `CHZZK_CLIENT_ID` / `CHZZK_CLIENT_SECRET` _(선택)_ | 둘 다 채우면 치지직 알림 켜짐 ([developers.chzzk.naver.com](https://developers.chzzk.naver.com)) |
 | `YOUTUBE_API_KEY` _(선택)_ | 채우면 YouTube 알림 켜짐 (Google Cloud Console → YouTube Data API v3 사용 설정 → API 키) |
-| `VOICEVOX_BASE_URL` _(선택)_ | 채우면 즌다몬 TTS(`/say`) 켜짐 — 예: `http://127.0.0.1:50021` |
+| `GPT_SOVITS_BASE_URL` _(선택)_ | 채우면 즌다몬 TTS(`/say`) 켜짐 — 진짜 한국어 발음, GPU 필요 |
+| `VOICEVOX_BASE_URL` _(선택)_ | 채우면 즌다몬 TTS 켜짐 — GPU 없이 돌지만 가타카나 음차 발음 |
 
 > 채널 id는 디스코드에서 **사용자 설정 → 고급 → 개발자 모드**를 켠 뒤 채널 우클릭 → **채널 ID 복사**.
 > Twitch·치지직·YouTube 알림 채널을 따로 안 정하면 `STEAM_ALERT_CHANNEL_ID`와 같은 채널을 쓴다.

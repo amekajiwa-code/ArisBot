@@ -27,6 +27,16 @@ export function loadConfig(env = process.env) {
     return v && Number.isFinite(Number(v)) ? Number(v) : fallback;
   };
 
+  // GPT-SoVITS는 few-shot 음성 복제라 참조 음성이 없으면 목소리가 정해지지 않는다.
+  // 기동은 되고 첫 /say에서야 500이 떨어지므로 여기서 미리 막는다.
+  const gptSovitsBaseUrl = env.GPT_SOVITS_BASE_URL?.trim() || null;
+  if (gptSovitsBaseUrl && !env.GPT_SOVITS_REF_AUDIO_PATH?.trim()) {
+    throw new ConfigError(
+      'GPT_SOVITS_BASE_URL 을 쓰려면 GPT_SOVITS_REF_AUDIO_PATH 도 채워야 합니다 '
+      + '— 즌다몬 참조 음성의 경로(봇이 아니라 API 서버 기준)',
+    );
+  }
+
   return {
     discordToken,
     // Steam player-count alert (disabled unless STEAM_ALERT_CHANNEL_ID is set).
@@ -68,8 +78,20 @@ export function loadConfig(env = process.env) {
     youtubeCategoryName: env.YOUTUBE_CATEGORY_NAME?.trim() || 'Deadly Trick',
     youtubePollIntervalSec: num('YOUTUBE_POLL_INTERVAL_SEC', 900),
     youtubeAlertMinViewers: num('YOUTUBE_ALERT_MIN_VIEWERS', 50),
-    // 즌다몬 TTS (disabled unless VOICEVOX_BASE_URL is set).
-    // VOICEVOX ENGINE is a separate process — see README for how to run it.
+    // 즌다몬 TTS — 엔진 URL 중 하나를 채우면 켜진다. 둘 다 채우면 GPT-SoVITS가 이긴다.
+    //
+    // GPT-SoVITS(api_v2.py): 한국어를 아는 다국어 모델이라 한글을 그대로 읽는다. GPU 필요.
+    // VOICEVOX: 일본어 전용이라 한글을 가타카나로 음차해 넘긴다. CPU만으로 돈다.
+    gptSovitsBaseUrl,
+    // 참조 음성 경로는 봇이 아니라 API 서버 쪽 파일 시스템 기준이다.
+    gptSovitsRefAudioPath: env.GPT_SOVITS_REF_AUDIO_PATH?.trim() || null,
+    // 참조 음성이 실제로 읽고 있는 문장. 즌다몬 참조본은 일본어라 promptLang 기본이 all_ja다.
+    gptSovitsPromptText: env.GPT_SOVITS_PROMPT_TEXT?.trim() || '',
+    gptSovitsPromptLang: env.GPT_SOVITS_PROMPT_LANG?.trim() || 'all_ja',
+    gptSovitsTextLang: env.GPT_SOVITS_TEXT_LANG?.trim() || 'all_ko',
+    gptSovitsSpeedFactor: num('GPT_SOVITS_SPEED_FACTOR', 1.0),
+    // GPU 추론이라 VOICEVOX보다 훨씬 느리다.
+    gptSovitsTimeoutSec: num('GPT_SOVITS_TIMEOUT_SEC', 60),
     voicevoxBaseUrl: env.VOICEVOX_BASE_URL?.trim() || null,
     voicevoxSpeaker: num('VOICEVOX_SPEAKER', 3), // 3 = ずんだもん(ノーマル)
     voicevoxSpeedScale: num('VOICEVOX_SPEED_SCALE', 1.0),

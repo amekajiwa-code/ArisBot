@@ -17,14 +17,15 @@ import { startChzzkWatch } from './chzzk-watch.js';
 import { createChzzkClient } from './chzzk.js';
 import { startYouTubeWatch } from './youtube-watch.js';
 import { createYouTubeClient } from './youtube.js';
-import { createVoicevoxClient } from './voicevox.js';
+import { createTtsBackend } from './tts-backend.js';
 import { createVoiceSessions } from './voice.js';
 import { connectToChannel } from './discord-voice.js';
 import { COMMANDS, createInteractionHandler, createMessageHandler } from './commands.js';
 
 const config = getConfig();
 
-const ttsEnabled = Boolean(config.voicevoxBaseUrl);
+const ttsBackend = createTtsBackend(config);
+const ttsEnabled = Boolean(ttsBackend);
 // GuildVoiceStates는 특권 인텐트가 아니다 — 누가 어느 음성 채널에 있는지 알려면 필요하다.
 // 반면 MessageContent는 특권 인텐트라, 접두사 모드를 켠 사람만 부담을 진다.
 const intents = [GatewayIntentBits.Guilds];
@@ -179,18 +180,8 @@ client.once(Events.ClientReady, async (c) => {
   }
 
   if (ttsEnabled) {
-    const voicevox = createVoicevoxClient({
-      baseUrl: config.voicevoxBaseUrl,
-      speaker: config.voicevoxSpeaker,
-      speedScale: config.voicevoxSpeedScale,
-      pitchScale: config.voicevoxPitchScale,
-      intonationScale: config.voicevoxIntonationScale,
-      volumeScale: config.voicevoxVolumeScale,
-      timeoutMs: config.voicevoxTimeoutSec * 1000,
-    });
-
     ttsSessions = createVoiceSessions({
-      synthesize: (kana) => voicevox.synthesize(kana),
+      synthesize: (spoken) => ttsBackend.synthesize(spoken),
       connect: (channel) => connectToChannel(channel),
       idleTimeoutMs: config.ttsIdleTimeoutSec * 1000,
       onError: (e) => console.error('[tts] session error:', e?.message ?? e),
@@ -198,12 +189,14 @@ client.once(Events.ClientReady, async (c) => {
 
     client.on(Events.InteractionCreate, createInteractionHandler({
       sessions: ttsSessions,
+      backend: ttsBackend,
       maxLength: config.ttsMaxLength,
     }));
 
     if (config.ttsMessagePrefix) {
       client.on(Events.MessageCreate, createMessageHandler({
         sessions: ttsSessions,
+        backend: ttsBackend,
         maxLength: config.ttsMaxLength,
         prefix: config.ttsMessagePrefix,
       }));
@@ -224,17 +217,16 @@ client.once(Events.ClientReady, async (c) => {
       console.error('→ 봇을 applications.commands 스코프로 다시 초대했는지 확인하세요.');
     }
 
+    console.log(
+      `[tts] backend ${ttsBackend.name} (최대 ${config.ttsMaxLength}자, `
+      + `${config.ttsIdleTimeoutSec}s 유휴 시 퇴장)`,
+    );
     // 엔진이 안 떠 있으면 첫 /say에서야 알게 되므로 기동할 때 미리 확인해 둔다.
-    voicevox.version()
-      .then((v) => console.log(
-        `[tts] VOICEVOX ${v} at ${config.voicevoxBaseUrl} (speaker ${config.voicevoxSpeaker}, `
-        + `최대 ${config.ttsMaxLength}자, ${config.ttsIdleTimeoutSec}s 유휴 시 퇴장)`,
-      ))
-      .catch((e) => console.error(
-        `[tts] ⚠️ VOICEVOX ENGINE(${config.voicevoxBaseUrl})에 닿지 못했습니다: ${e?.message ?? e}`,
-      ));
+    ttsBackend.describe()
+      .then((info) => console.log(`[tts] ${info}`))
+      .catch((e) => console.error(`[tts] ⚠️ ${ttsBackend.name} 엔진에 닿지 못했습니다: ${e?.message ?? e}`));
   } else {
-    console.log('[tts] disabled (set VOICEVOX_BASE_URL to enable)');
+    console.log('[tts] disabled (set GPT_SOVITS_BASE_URL or VOICEVOX_BASE_URL to enable)');
   }
 
   if (!anyEnabled && !ttsEnabled) {

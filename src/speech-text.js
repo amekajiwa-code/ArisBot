@@ -5,8 +5,20 @@
 
 import { hangulToKatakana } from './hangul-kana.js';
 
-// 낱자로 쓰인 자모(ㅋㅋㅋ, ㅠㅠ, ㄱㅅ)는 음절이 아니라 hangulToKatakana가 그냥 통과시킨다.
-// 그대로 두면 VOICEVOX가 읽지 못해 무음이 되므로 여기서 미리 가나로 바꿔 준다.
+// 낱자로 쓰인 자모(ㅋㅋㅋ, ㅠㅠ, ㄱㅅ)는 음절이 아니라 어느 엔진도 읽지 못한다.
+// 그대로 두면 무음이 되므로 읽을 수 있는 글자로 미리 풀어 준다.
+//
+// 한글을 그대로 읽는 엔진(GPT-SoVITS)용 — 낱자의 한국어 이름값에 가깝게 편다.
+const JAMO_HANGUL = {
+  ㄱ: '그', ㄲ: '끄', ㄴ: '느', ㄷ: '드', ㄸ: '뜨', ㄹ: '르', ㅁ: '므',
+  ㅂ: '브', ㅃ: '쁘', ㅅ: '스', ㅆ: '쓰', ㅇ: '응', ㅈ: '즈', ㅉ: '쯔',
+  ㅊ: '츠', ㅋ: '크', ㅌ: '트', ㅍ: '프', ㅎ: '흐',
+  ㅏ: '아', ㅐ: '애', ㅑ: '야', ㅒ: '얘', ㅓ: '어', ㅔ: '에', ㅕ: '여', ㅖ: '예',
+  ㅗ: '오', ㅘ: '와', ㅙ: '왜', ㅚ: '외', ㅛ: '요', ㅜ: '우', ㅝ: '워',
+  ㅞ: '웨', ㅟ: '위', ㅠ: '유', ㅡ: '으', ㅢ: '의', ㅣ: '이',
+};
+
+// 일본어 엔진(VOICEVOX)용 — 어차피 뒤에서 가나로 음차되므로 바로 가나로 적는다.
 const JAMO_KANA = {
   ㄱ: 'ク', ㄲ: 'ク', ㄴ: 'ヌ', ㄷ: 'トゥ', ㄸ: 'トゥ', ㄹ: 'ル', ㅁ: 'ム',
   ㅂ: 'プ', ㅃ: 'プ', ㅅ: 'ス', ㅆ: 'ス', ㅇ: 'ウン', ㅈ: 'チュ', ㅉ: 'チュ',
@@ -36,23 +48,31 @@ export function sanitizeForSpeech(text) {
 }
 
 /**
- * 디스코드 텍스트 → 실제로 읽을 내용과 그 가나.
+ * 디스코드 텍스트 → 화면에 보여 줄 내용(clean)과 엔진에 넘길 내용(spoken).
  *
- * 잘라낸 뒤의 clean과 kana를 함께 돌려주는 건, 명령어가 "이렇게 읽었어요"라고 보여 줄 때
+ * 잘라낸 뒤의 둘을 함께 돌려주는 건, 명령어가 "이렇게 읽었어요"라고 보여 줄 때
  * 화면의 글과 실제 발음이 어긋나지 않게 하기 위해서다.
  *
  * @param {string} text
- * @param {{maxLength?: number}} [opts]  maxLength를 넘으면 잘라낸다(합성 시간 폭주 방지)
- * @returns {{clean: string, kana: string, truncated: boolean}}
+ * @param {object} [opts]
+ * @param {number} [opts.maxLength]      넘으면 잘라낸다(합성 시간 폭주 방지)
+ * @param {boolean} [opts.transliterate] true면 가타카나로 음차한다(일본어 전용 엔진용).
+ *                                       false면 한글 그대로 넘긴다(다국어 엔진용).
+ * @returns {{clean: string, spoken: string, truncated: boolean}}
  */
-export function prepareSpeech(text, { maxLength = 200 } = {}) {
+export function prepareSpeech(text, { maxLength = 200, transliterate = true } = {}) {
   const full = sanitizeForSpeech(text);
   const truncated = full.length > maxLength;
   const clean = truncated ? full.slice(0, maxLength) : full;
-  const kana = clean
-    ? hangulToKatakana([...clean].map((ch) => JAMO_KANA[ch] ?? ch).join('')).trim()
-    : '';
-  return { clean, kana, truncated };
+  if (!clean) return { clean, spoken: '', truncated };
+
+  const jamo = transliterate ? JAMO_KANA : JAMO_HANGUL;
+  const expanded = [...clean].map((ch) => jamo[ch] ?? ch).join('');
+  return {
+    clean,
+    spoken: (transliterate ? hangulToKatakana(expanded) : expanded).trim(),
+    truncated,
+  };
 }
 
 /**
@@ -62,5 +82,5 @@ export function prepareSpeech(text, { maxLength = 200 } = {}) {
  * @returns {string}
  */
 export function toSpeechKana(text, opts) {
-  return prepareSpeech(text, opts).kana;
+  return prepareSpeech(text, opts).spoken;
 }

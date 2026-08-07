@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitizeForSpeech, toSpeechKana } from '../src/speech-text.js';
+import { sanitizeForSpeech, toSpeechKana, prepareSpeech } from '../src/speech-text.js';
 
 test('sanitizeForSpeech: 멘션·채널·타임스탬프를 걷어낸다', () => {
   assert.equal(sanitizeForSpeech('<@123> 안녕'), '안녕');
@@ -67,4 +67,37 @@ test('toSpeechKana: 읽을 게 없으면 빈 문자열', () => {
 
 test('toSpeechKana: 일본어는 손대지 않고 통과시킨다', () => {
   assert.equal(toSpeechKana('ずんだもんなのだ'), 'ずんだもんなのだ');
+});
+
+test('prepareSpeech: 다국어 엔진용으로는 한글을 그대로 넘긴다', () => {
+  const r = prepareSpeech('안녕하세요', { transliterate: false });
+  assert.equal(r.clean, '안녕하세요');
+  assert.equal(r.spoken, '안녕하세요');
+  assert.equal(r.truncated, false);
+});
+
+test('prepareSpeech: 한글 그대로 넘길 때도 낱자 자모는 읽을 수 있게 편다', () => {
+  const spoken = (t) => prepareSpeech(t, { transliterate: false }).spoken;
+  assert.equal(spoken('ㅋㅋㅋ'), '크크크');
+  assert.equal(spoken('ㅠㅠ'), '유유');
+  assert.equal(spoken('ㄱㅅ'), '그스');
+  assert.equal(spoken('대박 ㅋㅋ'), '대박 크크');
+});
+
+test('prepareSpeech: 정리는 두 엔진 모두 똑같이 한다', () => {
+  const raw = '<@1> **대박** https://example.com 🎮';
+  assert.equal(prepareSpeech(raw, { transliterate: false }).spoken, '대박 링크');
+  assert.equal(prepareSpeech(raw, { transliterate: true }).spoken, 'テバク リンク');
+});
+
+test('prepareSpeech: 잘라내기는 음차 여부와 무관하게 원문 기준이다', () => {
+  const r = prepareSpeech('가나다라마', { maxLength: 3, transliterate: false });
+  assert.equal(r.clean, '가나다');
+  assert.equal(r.spoken, '가나다');
+  assert.equal(r.truncated, true);
+});
+
+test('prepareSpeech: 읽을 게 없으면 spoken이 빈 문자열', () => {
+  assert.equal(prepareSpeech('<@123> 🎮', { transliterate: false }).spoken, '');
+  assert.equal(prepareSpeech('', { transliterate: true }).spoken, '');
 });

@@ -231,3 +231,47 @@ test('loadConfig: TTS values from env', () => {
   assert.equal(c.ttsCommandGuildId, '999');
   assert.equal(c.ttsMessagePrefix, 'say:');
 });
+
+test('loadConfig: GPT-SoVITS defaults (Korean text, Japanese reference)', () => {
+  const c = loadConfig({
+    ...base,
+    GPT_SOVITS_BASE_URL: 'http://gpu-box:9880',
+    GPT_SOVITS_REF_AUDIO_PATH: '/opt/zundamon/reference.wav',
+  });
+  assert.equal(c.gptSovitsBaseUrl, 'http://gpu-box:9880');
+  assert.equal(c.gptSovitsRefAudioPath, '/opt/zundamon/reference.wav');
+  assert.equal(c.gptSovitsTextLang, 'all_ko');
+  assert.equal(c.gptSovitsPromptLang, 'all_ja');
+  assert.equal(c.gptSovitsPromptText, '');
+  assert.equal(c.gptSovitsSpeedFactor, 1.0);
+  assert.equal(c.gptSovitsTimeoutSec, 60);
+});
+
+test('loadConfig: GPT-SoVITS values from env', () => {
+  const c = loadConfig({
+    ...base,
+    GPT_SOVITS_BASE_URL: 'http://gpu-box:9880',
+    GPT_SOVITS_REF_AUDIO_PATH: '/ref.wav',
+    GPT_SOVITS_PROMPT_TEXT: '流し切りが完全に入れば',
+    GPT_SOVITS_PROMPT_LANG: 'all_ja',
+    GPT_SOVITS_TEXT_LANG: 'ko',
+    GPT_SOVITS_SPEED_FACTOR: '1.15',
+    GPT_SOVITS_TIMEOUT_SEC: '90',
+  });
+  assert.equal(c.gptSovitsPromptText, '流し切りが完全に入れば');
+  assert.equal(c.gptSovitsTextLang, 'ko');
+  assert.equal(c.gptSovitsSpeedFactor, 1.15);
+  assert.equal(c.gptSovitsTimeoutSec, 90);
+});
+
+test('loadConfig: GPT-SoVITS without a reference audio is rejected up front', () => {
+  // 참조 음성이 없으면 목소리가 정해지지 않아 첫 /say 에서야 터진다 — 기동 때 막는다.
+  assert.throws(
+    () => loadConfig({ ...base, GPT_SOVITS_BASE_URL: 'http://gpu-box:9880' }),
+    ConfigError,
+  );
+  assert.throws(
+    () => loadConfig({ ...base, GPT_SOVITS_BASE_URL: 'http://gpu-box:9880', GPT_SOVITS_REF_AUDIO_PATH: '  ' }),
+    /GPT_SOVITS_REF_AUDIO_PATH/,
+  );
+});
