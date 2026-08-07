@@ -1,6 +1,7 @@
-# 🤖 ArisBot (알림 전용)
+# 🤖 ArisBot
 
 > Steam 동접자 · Twitch · 치지직 · YouTube(VTuber) 카테고리 라이브를 감시해 Discord 채널로 알려주는 봇.
+> 덤으로 **즌다몬이 한국어를 읽어 주는 TTS**(`/say`)가 붙어 있다.
 > 클라우드 VM(예: Google Cloud `e2-micro`, Ubuntu)에서 24시간 구동한다.
 
 <p align="center">
@@ -21,9 +22,70 @@
 | **치지직 라이브** | 지정 카테고리에 새 방송이 켜지면 동일 형식 임베드 (공식 Open API 한계상 시청자 상위권만 훑음) |
 | **YouTube 라이브** | 지정 검색어로 라이브를 훑어 동일 형식 임베드 (공식 API 쿼터 한도상 15분 주기) |
 
-슬래시 명령·메시지 응답·원격제어 기능은 **없다**. 알림만 보낸다. 들어오는 이벤트가 없으니 디스코드 포털에서 **Message Content / Presence 등 privileged intent를 켤 필요가 없다.** 봇은 서버에 초대돼 **메시지 보내기** 권한만 있으면 된다.
+각 알림 소스는 해당 자격증명/채널을 채웠을 때만 켜지고, 비워두면 조용히 꺼진다. 아무것도 안 채우면 경고만 찍고 가만히 있는다.
 
-각 알림 소스는 해당 자격증명/채널을 채웠을 때만 켜지고, 비워두면 조용히 꺼진다. 넷 다 안 채우면 경고만 찍고 아무 알림도 안 보낸다.
+여기에 더해 `VOICEVOX_BASE_URL`을 채우면 **즌다몬 TTS**가 켜진다(아래 참고).
+
+디스코드 포털에서 **privileged intent를 켤 필요가 없다.** 슬래시 명령어와 음성 접속은 특권 인텐트를 쓰지 않는다. (유일한 예외가 `TTS_MESSAGE_PREFIX`이고, 그래서 기본으로 꺼져 있다.)
+
+---
+
+## 🗣️ 즌다몬 TTS
+
+`/say 안녕하세요` 를 치면 즌다몬이 **내가 들어가 있는 음성 채널로 따라 들어와** 그 말을 읽는다.
+
+| 명령어 | 하는 일 |
+| --- | --- |
+| `/say <내용>` | 음성 채널에서 그 내용을 즌다몬 목소리로 읽는다 |
+| `/leave` | 음성 채널에서 나간다 (`TTS_IDLE_TIMEOUT_SEC` 동안 조용하면 알아서도 나간다) |
+
+### 한국어를 어떻게 읽는가
+
+> ⚠️ **VOICEVOX는 일본어 전용 엔진이다.** 한글을 그대로 넘기면 한 글자도 못 읽는다.
+
+그래서 봇이 한글을 **가타카나로 음차해서** 넘긴다. 일본어에 없는 대립(ㅓ/ㅗ, ㅡ/ㅜ, ㄴ받침/ㅇ받침)은 한쪽으로 뭉개지므로 "일본인이 한국어를 읽는" 발음이 난다 — 그게 이 기능의 취지다.
+
+다만 철자를 그대로 읽으면 알아들을 수조차 없어서, 회화에서 늘 발동하는 음운 규칙 넷은 적용한다.
+
+| 규칙 | 없으면 | 있으면 |
+| --- | --- | --- |
+| 연음 | 한국어 → `ハンククオ` | `ハングゴ` |
+| 평음 유성음화 | 불고기 → `プルコキ` | `プルゴギ` |
+| 비음화 | 감사합니다 → `カムサハプニタ` | `カムサハムニダ` |
+| 유음화 | 연락 → `ヨンラク` | `ヨルラク` |
+
+ㄹ비음화(종로 → 종노)와 구개음화(굳이 → 구지)는 구현 범위 밖이라 철자대로 읽힌다.
+
+`/say`의 응답 임베드 아래쪽에 실제로 넘어간 가나가 같이 뜨므로, 발음이 이상하면 왜 그런지 바로 보인다.
+
+### VOICEVOX ENGINE 띄우기
+
+엔진은 별도 프로세스다. 도커가 제일 간단하다.
+
+```bash
+docker run -d --restart unless-stopped -p 127.0.0.1:50021:50021 \
+  --name voicevox voicevox/voicevox_engine:cpu-latest
+```
+
+그리고 `.env`에 주소를 적는다.
+
+```bash
+VOICEVOX_BASE_URL=http://127.0.0.1:50021
+```
+
+> ⚠️ **엔진이 메모리를 2GB 남짓 먹는다. `e2-micro`(1GB)에는 안 올라간다.** 알림 봇과 같은 VM에 두려면 인스턴스를 키우고, 그러기 싫으면 엔진만 다른 호스트(집 PC 등)에 두고 그 주소를 적으면 된다. 알림 기능만 쓸 거면 `VOICEVOX_BASE_URL`을 비워두면 그만이다.
+>
+> ℹ️ **ffmpeg은 필요 없다.** 엔진에 디스코드가 쓰는 48kHz 스테레오로 바로 구워 달라고 요청해서 WAV 헤더만 벗겨 넘기기 때문이다. Opus 인코더도 순수 JS(`opusscript`)라 네이티브 빌드 단계가 없다.
+
+### 봇 초대 권한
+
+TTS를 쓰려면 봇을 **`applications.commands` 스코프로 다시 초대**해야 슬래시 명령어가 뜬다. 음성 채널에는 **연결**과 **말하기** 권한이 필요하다.
+
+명령어는 기본적으로 전역 등록되는데 디스코드 반영까지 최대 1시간 걸린다. 바로 확인하고 싶으면 `.env`에 `TTS_COMMAND_GUILD_ID`로 서버 id를 적으면 그 서버에 즉시 등록된다.
+
+### `say: 안녕` 처럼 메시지로 부르기
+
+`TTS_MESSAGE_PREFIX=say:` 를 채우면 슬래시 명령어 대신 그냥 채팅으로도 부를 수 있다. 대신 **디스코드 포털에서 MESSAGE CONTENT INTENT를 켜야 한다** — 이 봇에서 특권 인텐트가 필요한 유일한 기능이라 기본은 꺼져 있다.
 
 ---
 
@@ -65,6 +127,7 @@ nano .env                  # 아래 표를 보고 채우기
 | `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` _(선택)_ | 둘 다 채우면 Twitch 알림 켜짐 ([dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps), Confidential 앱) |
 | `CHZZK_CLIENT_ID` / `CHZZK_CLIENT_SECRET` _(선택)_ | 둘 다 채우면 치지직 알림 켜짐 ([developers.chzzk.naver.com](https://developers.chzzk.naver.com)) |
 | `YOUTUBE_API_KEY` _(선택)_ | 채우면 YouTube 알림 켜짐 (Google Cloud Console → YouTube Data API v3 사용 설정 → API 키) |
+| `VOICEVOX_BASE_URL` _(선택)_ | 채우면 즌다몬 TTS(`/say`) 켜짐 — 예: `http://127.0.0.1:50021` |
 
 > 채널 id는 디스코드에서 **사용자 설정 → 고급 → 개발자 모드**를 켠 뒤 채널 우클릭 → **채널 ID 복사**.
 > Twitch·치지직·YouTube 알림 채널을 따로 안 정하면 `STEAM_ALERT_CHANNEL_ID`와 같은 채널을 쓴다.
@@ -111,7 +174,7 @@ sudo systemctl restart arisbot
 
 ## ⚙️ 설정 항목 전체
 
-`.env.example`에 각 항목의 의미가 주석으로 달려 있다. 폴링 주기(`*_POLL_INTERVAL_SEC`, 기본 600초), 시청자 하한(`*_ALERT_MIN_VIEWERS`), 치지직 스캔 깊이(`CHZZK_MAX_PAGES`) 등을 조절할 수 있다.
+`.env.example`에 각 항목의 의미가 주석으로 달려 있다. 폴링 주기(`*_POLL_INTERVAL_SEC`, 기본 600초), 시청자 하한(`*_ALERT_MIN_VIEWERS`), 치지직 스캔 깊이(`CHZZK_MAX_PAGES`), 즌다몬의 화자·속도(`VOICEVOX_SPEAKER`, `VOICEVOX_SPEED_SCALE`) 등을 조절할 수 있다.
 
 > ⚠️ **치지직 공식 Open API에는 카테고리 필터가 없다.** 전체 라이브 중 시청자수 상위 `CHZZK_MAX_PAGES × 20`개만 훑어 카테고리가 일치하는 방송을 찾으므로, 시청자가 적은 소규모 카테고리는 상위권에 안 떠 놓칠 수 있다.
 >

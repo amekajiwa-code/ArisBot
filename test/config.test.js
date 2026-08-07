@@ -183,3 +183,51 @@ test('loadConfig: chzzk alert values from env', () => {
   assert.equal(c.chzzkAlertMinViewers, 3);
   assert.equal(c.chzzkMaxPages, 25);
 });
+
+test('loadConfig: TTS is off until VOICEVOX_BASE_URL is set', () => {
+  const c = loadConfig(base);
+  assert.equal(c.voicevoxBaseUrl, null);
+  assert.equal(c.ttsMessagePrefix, null);
+  assert.equal(c.ttsCommandGuildId, null);
+});
+
+test('loadConfig: TTS defaults (Zundamon normal, 200 chars, 5 min idle)', () => {
+  const c = loadConfig({ ...base, VOICEVOX_BASE_URL: 'http://127.0.0.1:50021' });
+  assert.equal(c.voicevoxBaseUrl, 'http://127.0.0.1:50021');
+  assert.equal(c.voicevoxSpeaker, 3);
+  assert.equal(c.voicevoxSpeedScale, 1.0);
+  assert.equal(c.voicevoxPitchScale, 0.0);
+  assert.equal(c.voicevoxIntonationScale, 1.0);
+  assert.equal(c.voicevoxVolumeScale, 1.0);
+  assert.equal(c.voicevoxTimeoutSec, 20);
+  assert.equal(c.ttsMaxLength, 200);
+  assert.equal(c.ttsIdleTimeoutSec, 300);
+});
+
+test('loadConfig: TTS values from env', () => {
+  const c = loadConfig({
+    ...base,
+    VOICEVOX_BASE_URL: 'http://voicevox:50021/',
+    VOICEVOX_SPEAKER: '1',
+    VOICEVOX_SPEED_SCALE: '1.2',
+    VOICEVOX_PITCH_SCALE: '0.03',
+    VOICEVOX_INTONATION_SCALE: '1.5',
+    VOICEVOX_VOLUME_SCALE: '0.9',
+    VOICEVOX_TIMEOUT_SEC: '30',
+    TTS_MAX_LENGTH: '120',
+    TTS_IDLE_TIMEOUT_SEC: '60',
+    TTS_COMMAND_GUILD_ID: '999',
+    TTS_MESSAGE_PREFIX: 'say:',
+  });
+  assert.equal(c.voicevoxBaseUrl, 'http://voicevox:50021/');
+  assert.equal(c.voicevoxSpeaker, 1);
+  assert.equal(c.voicevoxSpeedScale, 1.2);
+  assert.equal(c.voicevoxPitchScale, 0.03);
+  assert.equal(c.voicevoxIntonationScale, 1.5);
+  assert.equal(c.voicevoxVolumeScale, 0.9);
+  assert.equal(c.voicevoxTimeoutSec, 30);
+  assert.equal(c.ttsMaxLength, 120);
+  assert.equal(c.ttsIdleTimeoutSec, 60);
+  assert.equal(c.ttsCommandGuildId, '999');
+  assert.equal(c.ttsMessagePrefix, 'say:');
+});

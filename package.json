@@ -13,6 +13,9 @@
     "node": ">=20.6"
   },
   "dependencies": {
-    "discord.js": "^14.26.4"
+    "@discordjs/voice": "^0.19.2",
+    "discord.js": "^14.26.4",
+    "libsodium-wrappers": "^0.8.4",
+    "opusscript": "^0.0.8"
   }
 }

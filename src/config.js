@@ -68,6 +68,23 @@ export function loadConfig(env = process.env) {
     youtubeCategoryName: env.YOUTUBE_CATEGORY_NAME?.trim() || 'Deadly Trick',
     youtubePollIntervalSec: num('YOUTUBE_POLL_INTERVAL_SEC', 900),
     youtubeAlertMinViewers: num('YOUTUBE_ALERT_MIN_VIEWERS', 50),
+    // 즌다몬 TTS (disabled unless VOICEVOX_BASE_URL is set).
+    // VOICEVOX ENGINE is a separate process — see README for how to run it.
+    voicevoxBaseUrl: env.VOICEVOX_BASE_URL?.trim() || null,
+    voicevoxSpeaker: num('VOICEVOX_SPEAKER', 3), // 3 = ずんだもん(ノーマル)
+    voicevoxSpeedScale: num('VOICEVOX_SPEED_SCALE', 1.0),
+    voicevoxPitchScale: num('VOICEVOX_PITCH_SCALE', 0.0),
+    voicevoxIntonationScale: num('VOICEVOX_INTONATION_SCALE', 1.0),
+    voicevoxVolumeScale: num('VOICEVOX_VOLUME_SCALE', 1.0),
+    voicevoxTimeoutSec: num('VOICEVOX_TIMEOUT_SEC', 20),
+    ttsMaxLength: num('TTS_MAX_LENGTH', 200),
+    ttsIdleTimeoutSec: num('TTS_IDLE_TIMEOUT_SEC', 300),
+    // Slash commands register globally (up to ~1h to appear). Set this to a guild id
+    // to register there instead — shows up instantly, handy while testing.
+    ttsCommandGuildId: env.TTS_COMMAND_GUILD_ID?.trim() || null,
+    // "say: 안녕" 처럼 메시지로 부르는 모드. Message Content 특권 인텐트가 필요해
+    // 기본은 꺼짐 — 슬래시 명령어만 쓰면 인텐트를 켤 필요가 없다.
+    ttsMessagePrefix: env.TTS_MESSAGE_PREFIX?.trim() || null,
   };
 }
 
