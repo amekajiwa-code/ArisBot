@@ -17,7 +17,8 @@ import { startYouTubeWatch } from './youtube-watch.js';
 import { createYouTubeClient } from './youtube.js';
 import { createStreamLog } from './stream-log.js';
 import { createRecorder, startRecorder } from './recorder.js';
-import { createSources, youtubeLiveSighting } from './sources.js';
+import { createSources, youtubeLiveSighting, PLATFORMS } from './sources.js';
+import { createLiveWatcher, COLORS } from './live-watch.js';
 
 const config = getConfig();
 
@@ -42,18 +43,57 @@ client.once(Events.ClientReady, async (c) => {
 
   let anyEnabled = false;
 
+  // ── 비리비리 · 니코니코 라이브 알림 ────────────────────────────────────────
+  // 이 둘은 자체 폴링을 두지 않는다. 아래 기록기가 1분마다 훑는 결과를 워처가 받아쓰므로
+  // 알림을 켜도 외부 요청은 한 건도 안 늘어난다. 키가 없는 플랫폼이라 알림 채널이 스위치다.
+  const sightingHooks = {};
+  for (const p of [
+    {
+      tag: 'bilibili', platform: PLATFORMS.bilibili, color: COLORS.bilibili,
+      enabled: config.bilibiliAlertEnabled, channelId: config.bilibiliAlertChannelId,
+      categoryName: config.bilibiliCategoryName, minViewers: config.bilibiliAlertMinViewers,
+      enabledKey: 'BILIBILI_ALERT_ENABLED', channelKey: 'BILIBILI_ALERT_CHANNEL_ID',
+    },
+    {
+      tag: 'niconico', platform: PLATFORMS.niconico, color: COLORS.niconico,
+      enabled: config.nicoAlertEnabled, channelId: config.nicoAlertChannelId,
+      categoryName: config.nicoCategoryName, minViewers: config.nicoAlertMinViewers,
+      enabledKey: 'NICO_ALERT_ENABLED', channelKey: 'NICO_ALERT_CHANNEL_ID',
+    },
+  ]) {
+    if (!p.enabled) { console.log(`[${p.tag}] disabled (${p.enabledKey}=0)`); continue; }
+    if (!p.channelId) { console.log(`[${p.tag}] disabled (set ${p.channelKey} to enable)`); continue; }
+    anyEnabled = true;
+    const watcher = createLiveWatcher({
+      send: makeSender(c, p.channelId, p.tag),
+      categoryName: p.categoryName,
+      minViewers: p.minViewers,
+      platform: p.platform,
+      color: p.color,
+      matchTerms: config.matchTerms,        // 검색 기반이라 오탐을 한 번 더 거른다
+    });
+    sightingHooks[p.platform] = (found) => watcher.push(found);
+    console.log(
+      `[${p.tag}] watching "${p.categoryName}" → channel ${p.channelId} ` +
+      `(every ${config.recorderPollIntervalSec}s, min ${p.minViewers} viewers)`,
+    );
+  }
+
   // ── 방송 기록기 ────────────────────────────────────────────────────────────
   // 알림과 별개로, 짧은 주기로 훑어 "누가 언제 방송했나"를 디스크에 남긴다. 방송이
   // 끝나고 VOD도 안 남기면 나중엔 어디서도 못 찾으므로, 그 순간 본 것을 적어두는 게
   // 유일한 방법이다. 나중에 `npm run find-streamers` 가 이 기록을 읽는다.
   let recorder = null;
-  if (config.recorderEnabled) {
-    const log = createStreamLog({
-      path: config.streamLogPath,
-      retentionDays: config.recorderRetentionDays,
-      gapMs: config.recorderSessionGapSec * 1000,
-    });
-    recorder = createRecorder({ log });
+  if (config.recorderEnabled || Object.keys(sightingHooks).length) {
+    // 기록을 껐어도 위 알림을 켰으면 폴링은 돌아야 한다 — 그때는 훑기만 하고 안 적는다.
+    const log = config.recorderEnabled
+      ? createStreamLog({
+        path: config.streamLogPath,
+        retentionDays: config.recorderRetentionDays,
+        gapMs: config.recorderSessionGapSec * 1000,
+      })
+      : { record: async () => 0 };
+    recorder = createRecorder({ log, onSightings: sightingHooks });
     // YouTube 는 search.list 쿼터(100회/일) 때문에 따로 폴링할 수 없어 워처 훅으로 기록한다.
     const sources = createSources(config, {
       gameName: config.steamGameName,
@@ -63,7 +103,8 @@ client.once(Events.ClientReady, async (c) => {
     startRecorder({ sources, log, recorder, intervalMs: config.recorderPollIntervalSec * 1000 });
     const names = sources.filter((s) => s.run).map((s) => s.platform);
     console.log(
-      `[record] ${names.join(', ') || '(폴링 소스 없음)'} → ${config.streamLogPath} ` +
+      `[record] ${names.join(', ') || '(폴링 소스 없음)'} → ` +
+      `${config.recorderEnabled ? config.streamLogPath : '기록 끔(알림만)'} ` +
       `(every ${config.recorderPollIntervalSec}s, ${config.recorderRetentionDays}일 보관)`,
     );
   } else {

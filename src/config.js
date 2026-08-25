@@ -28,6 +28,20 @@ export function loadFinderConfig(env = process.env) {
     bilibiliSearchKeywords: csv(env.BILIBILI_SEARCH_KEYWORDS ?? 'Deadly Trick'),
     bilibiliCookie: env.BILIBILI_COOKIE?.trim() || null,
     nicoSearchKeywords: csv(env.NICO_SEARCH_KEYWORDS ?? 'Deadly Trick,デッドリートリック'),
+    // 검색 기반 플랫폼(비리비리·니코니코) 공통 오탐 필터. 기본값은 YouTube 쪽과 같다.
+    matchTerms: csv(env.MATCH_TERMS ?? env.YOUTUBE_MATCH_TERMS ?? YT_DEFAULT_TERMS),
+    // 비리비리·니코니코 라이브 알림. 키가 필요 없는 플랫폼이라 알림 채널이 곧 스위치다.
+    // (기록기가 훑는 결과를 얻어 쓰므로 알림을 켜도 요청은 안 늘어난다.)
+    bilibiliAlertEnabled: (env.BILIBILI_ALERT_ENABLED?.trim() || '1') !== '0',
+    bilibiliAlertChannelId:
+      env.BILIBILI_ALERT_CHANNEL_ID?.trim() || env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
+    bilibiliCategoryName: env.BILIBILI_CATEGORY_NAME?.trim() || 'Deadly Trick',
+    bilibiliAlertMinViewers: num(env, 'BILIBILI_ALERT_MIN_VIEWERS', 50),
+    nicoAlertEnabled: (env.NICO_ALERT_ENABLED?.trim() || '1') !== '0',
+    nicoAlertChannelId:
+      env.NICO_ALERT_CHANNEL_ID?.trim() || env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
+    nicoCategoryName: env.NICO_CATEGORY_NAME?.trim() || 'Deadly Trick',
+    nicoAlertMinViewers: num(env, 'NICO_ALERT_MIN_VIEWERS', 50),
     // 방송 목격 기록 — "지난 N일에 누가 방송했나"를 검색이 아니라 우리 기록으로 답하기 위한 것.
     recorderEnabled: (env.RECORDER_ENABLED?.trim() || '1') !== '0',
     streamLogPath: env.STREAM_LOG_PATH?.trim() || 'data/streams.json',

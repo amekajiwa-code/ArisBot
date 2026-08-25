@@ -99,3 +99,92 @@ test('startRecorder: 자격증명이 없어 건너뛴 소스는 폴링하지 않
   stop();
   assert.deepEqual(log.written, []);
 });
+
+// ── 알림 훅: 기록기가 훑은 결과를 그대로 워처에 넘긴다(추가 요청 없이 알림)
+test('recorder: onSightings 로 폴링 결과를 해당 플랫폼 워처에 넘긴다', async () => {
+  const pushed = [];
+  const recorder = createRecorder({
+    log: fakeLog(),
+    onSightings: { 비리비리: async (found) => pushed.push(found) },
+  });
+
+  await recorder.tick({ platform: '비리비리', run: async () => [{ streamer: 'A' }] });
+  await recorder.tick({ platform: '니코니코', run: async () => [{ streamer: 'B' }] });  // 훅 없음 → 무시
+
+  assert.deepEqual(pushed, [[{ streamer: 'A' }]]);
+});
+
+test('recorder: 기록이 실패해도 알림은 나간다', async () => {
+  const pushed = [];
+  const errors = [];
+  const recorder = createRecorder({
+    log: fakeLog({ failOn: '비리비리' }),
+    onError: (m) => errors.push(m),
+    onSightings: { 비리비리: async (found) => pushed.push(found) },
+  });
+
+  const ok = await recorder.tick({ platform: '비리비리', run: async () => [{ streamer: 'A' }] });
+
+  assert.equal(ok, false);
+  assert.equal(pushed.length, 1, '디스크가 차도 알림은 가야 한다');
+  assert.match(errors[0], /disk full/);
+});
+
+test('recorder: 알림이 실패해도 기록은 남고 다음 주기를 막지 않는다', async () => {
+  const log = fakeLog();
+  const errors = [];
+  const recorder = createRecorder({
+    log,
+    onError: (m) => errors.push(m),
+    onSightings: { 비리비리: async () => { throw new Error('discord 500'); } },
+  });
+
+  const ok = await recorder.tick({ platform: '비리비리', run: async () => [{ streamer: 'A' }] });
+
+  assert.equal(ok, false);
+  assert.equal(log.written.length, 1);
+  assert.match(errors[0], /\[alert:비리비리\] discord 500/);
+});
+
+test('recorder: 조회가 실패하면 기록도 알림도 없다', async () => {
+  const log = fakeLog();
+  const pushed = [];
+  const recorder = createRecorder({
+    log,
+    onError: () => {},
+    onSightings: { 비리비리: async (f) => pushed.push(f) },
+  });
+
+  await recorder.tick({ platform: '비리비리', run: async () => { throw new Error('HTTP 403'); } });
+
+  assert.deepEqual(log.written, []);
+  assert.deepEqual(pushed, []);
+});
+
+// ── 통합: 폴링 한 바퀴 → 알림
+test('통합: 기록기 폴링만으로 새 방송 알림이 나간다 (자체 폴링 없음)', async () => {
+  const { createLiveWatcher } = await import('../src/live-watch.js');
+  const sent = [];
+  const watcher = createLiveWatcher({
+    send: async (p) => sent.push(p),
+    categoryName: 'Deadly Trick',
+    minViewers: 50,
+    platform: '니코니코',
+    matchTerms: [],
+  });
+
+  let lives = [{ id: 'lv1', streamer: '放送者', title: 't', url: 'u', views: 100, live: true }];
+  const recorder = createRecorder({
+    log: fakeLog(),
+    onSightings: { 니코니코: (found) => watcher.push(found) },
+  });
+  const source = { platform: '니코니코', run: async () => lives };
+
+  await recorder.tick(source);                       // 기준선
+  assert.deepEqual(sent, []);
+
+  lives = [...lives, { id: 'lv2', streamer: '新人', title: 't2', url: 'u2', views: 80, live: true }];
+  await recorder.tick(source);                       // 새 방송 등장
+
+  assert.deepEqual(sent.map((p) => p.embeds[0].title), ['니코니코에서 新人님이 Deadly Trick 방송중!']);
+});

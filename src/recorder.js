@@ -10,18 +10,37 @@
  * @param {object} opts
  * @param {{record: (platform: string, entries: Array) => Promise<number>}} opts.log
  */
-export function createRecorder({ log, onError = (m) => console.error(m) }) {
-  /** 소스 한 번 훑어 기록. 실패는 삼키고 false 를 준다(다음 주기에 다시 시도). */
+/**
+ * @param {object} opts
+ * @param {Record<string, (found: Array) => Promise<void>>} [opts.onSightings]
+ *        플랫폼별 후처리 훅. 비리비리·니코니코 알림 워처가 여기 붙어, 기록기가 훑은
+ *        결과를 그대로 받아쓴다(알림을 켜도 요청이 안 늘어나는 이유).
+ */
+export function createRecorder({ log, onError = (m) => console.error(m), onSightings = {} }) {
+  /** 소스 한 번 훑어 기록 + 알림. 실패는 삼키고 false 를 준다(다음 주기에 다시 시도). */
   async function tick(source) {
     if (!source?.run) return false;
+    let found;
     try {
-      const found = (await source.run()) ?? [];
-      await log.record(source.platform, found);
-      return true;
+      found = (await source.run()) ?? [];
     } catch (e) {
       onError(`[record:${source.platform}] ${e?.message ?? e}`);
       return false;
     }
+    let ok = true;
+    try {
+      await log.record(source.platform, found);
+    } catch (e) {
+      onError(`[record:${source.platform}] ${e?.message ?? e}`);
+      ok = false;                                   // 기록 실패가 알림까지 막지는 않는다
+    }
+    try {
+      await onSightings[source.platform]?.(found);
+    } catch (e) {
+      onError(`[alert:${source.platform}] ${e?.message ?? e}`);
+      ok = false;
+    }
+    return ok;
   }
 
   return {

@@ -183,3 +183,44 @@ test('loadConfig: chzzk alert values from env', () => {
   assert.equal(c.chzzkAlertMinViewers, 3);
   assert.equal(c.chzzkMaxPages, 25);
 });
+
+test('loadConfig: 비리비리·니코니코 알림 기본값 (채널 없으면 꺼짐)', () => {
+  const c = loadConfig(base);
+  assert.equal(c.bilibiliAlertEnabled, true);
+  assert.equal(c.bilibiliAlertChannelId, null, '채널이 없으면 켜지지 않는다');
+  assert.equal(c.bilibiliAlertMinViewers, 50);
+  assert.equal(c.bilibiliCategoryName, 'Deadly Trick');
+  assert.equal(c.nicoAlertEnabled, true);
+  assert.equal(c.nicoAlertMinViewers, 50);
+});
+
+test('loadConfig: 두 플랫폼 알림 채널은 Steam 채널로 폴백한다 (다른 알림과 동일)', () => {
+  const c = loadConfig({ ...base, STEAM_ALERT_CHANNEL_ID: '111' });
+  assert.equal(c.bilibiliAlertChannelId, '111');
+  assert.equal(c.nicoAlertChannelId, '111');
+
+  const own = loadConfig({ ...base, STEAM_ALERT_CHANNEL_ID: '111', NICO_ALERT_CHANNEL_ID: '222' });
+  assert.equal(own.nicoAlertChannelId, '222');
+});
+
+test('loadConfig: *_ALERT_ENABLED=0 이면 채널이 있어도 끈다', () => {
+  const c = loadConfig({ ...base, STEAM_ALERT_CHANNEL_ID: '111', BILIBILI_ALERT_ENABLED: '0' });
+  assert.equal(c.bilibiliAlertEnabled, false);
+  assert.equal(c.nicoAlertEnabled, true, '한쪽만 끈다');
+});
+
+test('loadConfig: 공통 오탐 필터는 MATCH_TERMS → YOUTUBE_MATCH_TERMS → 기본값 순', () => {
+  assert.deepEqual(loadConfig(base).matchTerms, ['Deadly Trick', '데들리 트릭', 'デッドリートリック']);
+  assert.deepEqual(loadConfig({ ...base, YOUTUBE_MATCH_TERMS: 'A,B' }).matchTerms, ['A', 'B']);
+  assert.deepEqual(loadConfig({ ...base, YOUTUBE_MATCH_TERMS: 'A', MATCH_TERMS: 'C' }).matchTerms, ['C']);
+});
+
+test('loadConfig: 기록기 기본값', () => {
+  const c = loadConfig(base);
+  assert.equal(c.recorderEnabled, true);
+  assert.equal(c.streamLogPath, 'data/streams.json');
+  assert.equal(c.recorderPollIntervalSec, 60);
+  assert.equal(c.recorderRetentionDays, 14);
+  assert.equal(c.recorderSessionGapSec, 1800);
+  assert.equal(loadConfig({ ...base, RECORDER_ENABLED: '0' }).recorderEnabled, false);
+});
