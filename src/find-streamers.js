@@ -28,6 +28,23 @@ export function withinWindow(entry, sinceMs, nowMs = Date.now()) {
   return t >= sinceMs && t <= nowMs + DAY_MS;         // 예약분이 섞여 들어오는 것 방지
 }
 
+/**
+ * 같은 방송이 두 경로로 들어온 것(우리 기록 + 플랫폼 검색)을 하나로 친다.
+ * 시작시각을 주는 플랫폼은 정확히 겹치고, 안 주는 플랫폼은 URL로 친다.
+ */
+export function dedupeEntries(entries) {
+  const seen = new Set();
+  const out = [];
+  for (const e of entries) {
+    const who = e.streamerId || e.streamer;
+    const key = `${e.platform}|${who}|${e.startedAt ?? ''}|${e.startedAt ? '' : e.url ?? e.title ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(e);
+  }
+  return out;
+}
+
 /** 같은 사람이 같은 플랫폼에서 여러 번 방송했으면 한 줄로 합친다. */
 export function groupByStreamer(entries) {
   const byKey = new Map();
@@ -84,7 +101,8 @@ export async function collect(sources, { days = 3, now = Date.now(), matchTerms 
     if (source.skip) { skipped.push({ platform: source.platform, reason: source.skip }); return; }
     try {
       for (const e of (await source.run()) ?? []) {
-        const entry = { ...e, platform: source.platform };
+        // 기록 소스는 엔트리마다 플랫폼이 다르므로 엔트리 값이 우선이다.
+        const entry = { ...e, platform: e.platform ?? source.platform };
         if (!withinWindow(entry, since, now)) continue;
         // 카테고리로 조회한 소스(Twitch)는 이미 게임이 확정이라 제목 필터를 걸지 않는다.
         if (source.filterByTerms !== false && !matchesText(`${entry.title ?? ''}\n${entry.description ?? ''}`, matchTerms)) continue;
@@ -95,7 +113,8 @@ export async function collect(sources, { days = 3, now = Date.now(), matchTerms 
     }
   }));
 
-  return { since, now, days, entries, errors, skipped, streamers: groupByStreamer(entries) };
+  const unique = dedupeEntries(entries);
+  return { since, now, days, entries: unique, errors, skipped, streamers: groupByStreamer(unique) };
 }
 
 const KST = 'Asia/Seoul';

@@ -43,9 +43,11 @@ export function createYouTubeClient({ apiKey, fetch = globalThis.fetch }) {
       .filter((v) => !v?.liveStreamingDetails?.actualEndTime)   // already over
       .map((v) => ({
         videoId: v.id,
+        channelId: v.snippet?.channelId,
         channelName: v.snippet?.channelTitle,
         title: v.snippet?.title,
         description: v.snippet?.description,
+        startedAt: v.liveStreamingDetails?.actualStartTime ?? null,
         liveViewers: Number(v.liveStreamingDetails?.concurrentViewers ?? 0),
       }));
   }

@@ -15,6 +15,9 @@ import { startChzzkWatch } from './chzzk-watch.js';
 import { createChzzkClient } from './chzzk.js';
 import { startYouTubeWatch } from './youtube-watch.js';
 import { createYouTubeClient } from './youtube.js';
+import { createStreamLog } from './stream-log.js';
+import { createRecorder, startRecorder } from './recorder.js';
+import { createSources, youtubeLiveSighting } from './sources.js';
 
 const config = getConfig();
 
@@ -38,6 +41,34 @@ client.once(Events.ClientReady, async (c) => {
   console.log(`[discord] logged in as ${c.user.tag}`);
 
   let anyEnabled = false;
+
+  // ── 방송 기록기 ────────────────────────────────────────────────────────────
+  // 알림과 별개로, 짧은 주기로 훑어 "누가 언제 방송했나"를 디스크에 남긴다. 방송이
+  // 끝나고 VOD도 안 남기면 나중엔 어디서도 못 찾으므로, 그 순간 본 것을 적어두는 게
+  // 유일한 방법이다. 나중에 `npm run find-streamers` 가 이 기록을 읽는다.
+  let recorder = null;
+  if (config.recorderEnabled) {
+    const log = createStreamLog({
+      path: config.streamLogPath,
+      retentionDays: config.recorderRetentionDays,
+      gapMs: config.recorderSessionGapSec * 1000,
+    });
+    recorder = createRecorder({ log });
+    // YouTube 는 search.list 쿼터(100회/일) 때문에 따로 폴링할 수 없어 워처 훅으로 기록한다.
+    const sources = createSources(config, {
+      gameName: config.steamGameName,
+      backlog: false,                       // 지금 켜진 것만 — 가볍게 자주
+      only: ['twitch', 'bilibili', 'niconico'],
+    });
+    startRecorder({ sources, log, recorder, intervalMs: config.recorderPollIntervalSec * 1000 });
+    const names = sources.filter((s) => s.run).map((s) => s.platform);
+    console.log(
+      `[record] ${names.join(', ') || '(폴링 소스 없음)'} → ${config.streamLogPath} ` +
+      `(every ${config.recorderPollIntervalSec}s, ${config.recorderRetentionDays}일 보관)`,
+    );
+  } else {
+    console.log('[record] disabled (RECORDER_ENABLED=0)');
+  }
 
   if (config.steamAlertChannelId) {
     anyEnabled = true;
@@ -146,6 +177,7 @@ client.once(Events.ClientReady, async (c) => {
       matchTerms: config.youtubeMatchTerms,
       platform: 'YouTube',
       intervalMs: config.youtubePollIntervalSec * 1000,
+      onSightings: recorder?.hook('YouTube', youtubeLiveSighting),
     });
     console.log(
       `[youtube] watching ${config.youtubeSearchQuery} → channel ${config.youtubeAlertChannelId} ` +

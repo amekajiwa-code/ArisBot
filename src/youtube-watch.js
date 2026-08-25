@@ -59,7 +59,7 @@ export function buildAlert(live, categoryName, platform) {
  * @param {() => Promise<Array|null>} opts.fetchLives
  * @param {(payload: object) => Promise<void>} opts.send
  */
-export function createYouTubeWatcher({ fetchLives, send, categoryName, minViewers = 0, matchTerms = [], platform = 'YouTube' }) {
+export function createYouTubeWatcher({ fetchLives, send, categoryName, minViewers = 0, matchTerms = [], platform = 'YouTube', onSightings }) {
   let known = null; // Set<videoId> eligible & live as of the last successful tick (null = unseeded)
   return {
     get known() { return known; },
@@ -67,6 +67,9 @@ export function createYouTubeWatcher({ fetchLives, send, categoryName, minViewer
       const found = await fetchLives();
       if (found == null) return;                                       // fetch failed → skip
       const lives = found.filter((l) => matchesTerms(l, matchTerms));  // drop search noise
+      // 쿼터(search.list 100회/일) 때문에 기록기가 YouTube를 따로 폴링할 수 없다.
+      // 이미 받아온 목록을 그대로 넘겨 추가 요청 없이 기록한다.
+      await onSightings?.(lives);
       const ids = new Set(lives.filter((l) => l.liveViewers >= minViewers).map((l) => l.videoId));
       if (known == null) { known = ids; return; }                      // seed baseline, no announce
       for (const l of newStreamers(known, lives, minViewers)) {
@@ -78,8 +81,8 @@ export function createYouTubeWatcher({ fetchLives, send, categoryName, minViewer
 }
 
 /** Run a watcher immediately and then on an interval. Returns { stop() }. */
-export function startYouTubeWatch({ fetchLives, send, categoryName, minViewers, matchTerms, platform, intervalMs }) {
-  const watcher = createYouTubeWatcher({ fetchLives, send, categoryName, minViewers, matchTerms, platform });
+export function startYouTubeWatch({ fetchLives, send, categoryName, minViewers, matchTerms, platform, intervalMs, onSightings }) {
+  const watcher = createYouTubeWatcher({ fetchLives, send, categoryName, minViewers, matchTerms, platform, onSightings });
   const run = () =>
     watcher.tick().catch((e) => console.error('[youtube] tick error:', e?.message ?? e));
   run();

@@ -12,6 +12,32 @@ const YT_DEFAULT_TERMS = 'Deadly Trick,데들리 트릭,デッドリートリッ
 /** "a, b , " → ["a", "b"] */
 const csv = (s) => s.split(',').map((x) => x.trim()).filter(Boolean);
 
+// Parse an env var as a number, falling back to `fallback` when missing/NaN.
+const num = (env, name, fallback) => {
+  const v = env[name]?.trim();
+  return v && Number.isFinite(Number(v)) ? Number(v) : fallback;
+};
+
+/**
+ * 방송 기록기 + 방송자 수집 CLI 가 쓰는 설정. Discord 토큰이 필요 없어서
+ * loadConfig() 와 따로 부를 수 있다(봇 없이 CLI만 돌릴 때).
+ */
+export function loadFinderConfig(env = process.env) {
+  return {
+    // 비리비리·니코니코는 키가 없는 대신 검색어가 곧 적중률이다.
+    bilibiliSearchKeywords: csv(env.BILIBILI_SEARCH_KEYWORDS ?? 'Deadly Trick'),
+    bilibiliCookie: env.BILIBILI_COOKIE?.trim() || null,
+    nicoSearchKeywords: csv(env.NICO_SEARCH_KEYWORDS ?? 'Deadly Trick,デッドリートリック'),
+    // 방송 목격 기록 — "지난 N일에 누가 방송했나"를 검색이 아니라 우리 기록으로 답하기 위한 것.
+    recorderEnabled: (env.RECORDER_ENABLED?.trim() || '1') !== '0',
+    streamLogPath: env.STREAM_LOG_PATH?.trim() || 'data/streams.json',
+    recorderPollIntervalSec: num(env, 'RECORDER_POLL_INTERVAL_SEC', 60),
+    recorderRetentionDays: num(env, 'RECORDER_RETENTION_DAYS', 14),
+    // 시작시각을 안 주는 플랫폼에서 "같은 방송의 연속"으로 볼 최대 공백.
+    recorderSessionGapSec: num(env, 'RECORDER_SESSION_GAP_SEC', 1800),
+  };
+}
+
 export function loadConfig(env = process.env) {
   const required = (name, hint) => {
     const v = env[name]?.trim();
@@ -21,21 +47,16 @@ export function loadConfig(env = process.env) {
 
   const discordToken = required('DISCORD_BOT_TOKEN', 'Bot token from the Discord Developer Portal');
 
-  // Parse an env var as a number, falling back to `fallback` when missing/NaN.
-  const num = (name, fallback) => {
-    const v = env[name]?.trim();
-    return v && Number.isFinite(Number(v)) ? Number(v) : fallback;
-  };
-
   return {
     discordToken,
+    ...loadFinderConfig(env),
     // Steam player-count alert (disabled unless STEAM_ALERT_CHANNEL_ID is set).
     steamAlertChannelId: env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
     steamAppId: env.STEAM_APP_ID?.trim() || '3088400',
     steamGameName: env.STEAM_GAME_NAME?.trim() || 'Deadly Trick',
-    steamPollIntervalSec: num('STEAM_POLL_INTERVAL_SEC', 600),
-    steamAlertThreshold: num('STEAM_ALERT_THRESHOLD', 25),
-    steamAlertMinCount: num('STEAM_ALERT_MIN_COUNT', 10),
+    steamPollIntervalSec: num(env, 'STEAM_POLL_INTERVAL_SEC', 600),
+    steamAlertThreshold: num(env, 'STEAM_ALERT_THRESHOLD', 25),
+    steamAlertMinCount: num(env, 'STEAM_ALERT_MIN_COUNT', 10),
     // Twitch category live alert (disabled unless TWITCH_CLIENT_ID + TWITCH_CLIENT_SECRET are set).
     // Channel defaults to the Steam alert channel so both alerts can share one place.
     twitchClientId: env.TWITCH_CLIENT_ID?.trim() || null,
@@ -44,8 +65,8 @@ export function loadConfig(env = process.env) {
       env.TWITCH_ALERT_CHANNEL_ID?.trim() || env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
     twitchCategoryName: env.TWITCH_CATEGORY_NAME?.trim() || 'Deadly Trick',
     twitchGameId: env.TWITCH_GAME_ID?.trim() || null,
-    twitchPollIntervalSec: num('TWITCH_POLL_INTERVAL_SEC', 600),
-    twitchAlertMinViewers: num('TWITCH_ALERT_MIN_VIEWERS', 50),
+    twitchPollIntervalSec: num(env, 'TWITCH_POLL_INTERVAL_SEC', 600),
+    twitchAlertMinViewers: num(env, 'TWITCH_ALERT_MIN_VIEWERS', 50),
     // CHZZK(치지직) category live alert (disabled unless CHZZK_CLIENT_ID + CHZZK_CLIENT_SECRET are set).
     // Official Open API has no category filter, so it scans the top CHZZK_MAX_PAGES×20 lives.
     chzzkClientId: env.CHZZK_CLIENT_ID?.trim() || null,
@@ -54,9 +75,9 @@ export function loadConfig(env = process.env) {
       env.CHZZK_ALERT_CHANNEL_ID?.trim() || env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
     chzzkCategoryId: env.CHZZK_CATEGORY_ID?.trim() || 'Deadly_Trick',
     chzzkCategoryName: env.CHZZK_CATEGORY_NAME?.trim() || 'Deadly Trick',
-    chzzkPollIntervalSec: num('CHZZK_POLL_INTERVAL_SEC', 600),
-    chzzkAlertMinViewers: num('CHZZK_ALERT_MIN_VIEWERS', 50),
-    chzzkMaxPages: num('CHZZK_MAX_PAGES', 15),
+    chzzkPollIntervalSec: num(env, 'CHZZK_POLL_INTERVAL_SEC', 600),
+    chzzkAlertMinViewers: num(env, 'CHZZK_ALERT_MIN_VIEWERS', 50),
+    chzzkMaxPages: num(env, 'CHZZK_MAX_PAGES', 15),
     // YouTube live alert (disabled unless YOUTUBE_API_KEY is set).
     // search.list is capped at 100 calls/day, hence the 900s default interval.
     youtubeApiKey: env.YOUTUBE_API_KEY?.trim() || null,
@@ -66,8 +87,8 @@ export function loadConfig(env = process.env) {
     // Set but blank ⇒ filter off, so an explicit "" must not fall back to the default.
     youtubeMatchTerms: csv(env.YOUTUBE_MATCH_TERMS ?? YT_DEFAULT_TERMS),
     youtubeCategoryName: env.YOUTUBE_CATEGORY_NAME?.trim() || 'Deadly Trick',
-    youtubePollIntervalSec: num('YOUTUBE_POLL_INTERVAL_SEC', 900),
-    youtubeAlertMinViewers: num('YOUTUBE_ALERT_MIN_VIEWERS', 50),
+    youtubePollIntervalSec: num(env, 'YOUTUBE_POLL_INTERVAL_SEC', 900),
+    youtubeAlertMinViewers: num(env, 'YOUTUBE_ALERT_MIN_VIEWERS', 50),
   };
 }
 

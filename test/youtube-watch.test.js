@@ -167,3 +167,36 @@ test('watcher: lives below minViewers are ignored until they cross it', async ()
   assert.equal(sent.length, 1);
   assert.equal(titleOf(sent[0]), 'YouTube에서 A님이 Deadly Trick 방송중!');
 });
+
+test('watcher: onSightings 로 걸러진 라이브 목록을 기록기에 넘긴다 (첫 틱 포함)', async () => {
+  const seen = [];
+  const lives = [
+    { videoId: 'v1', channelName: 'A', title: 'Deadly Trick 8인', liveViewers: 5 },
+    { videoId: 'v2', channelName: 'B', title: '다른 게임', liveViewers: 500 },
+  ];
+  const watcher = createYouTubeWatcher({
+    fetchLives: async () => lives,
+    send: async () => {},
+    categoryName: 'Deadly Trick',
+    minViewers: 50,
+    matchTerms: ['Deadly Trick'],
+    onSightings: async (l) => seen.push(l),
+  });
+
+  await watcher.tick();   // 첫 틱은 알림을 안 보내지만 기록은 해야 한다
+
+  assert.deepEqual(seen, [[lives[0]]], '검색 노이즈는 빼고, 시청자 하한과 무관하게 전부 기록');
+});
+
+test('watcher: 조회가 실패하면 기록도 건드리지 않는다', async () => {
+  let calls = 0;
+  const watcher = createYouTubeWatcher({
+    fetchLives: async () => null,
+    send: async () => {},
+    categoryName: 'c',
+    onSightings: async () => { calls++; },
+  });
+
+  await watcher.tick();
+  assert.equal(calls, 0);
+});

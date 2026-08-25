@@ -12,6 +12,7 @@ const detail = (id, channelName, opts = {}) => ({
     title: opts.title ?? 't',
     description: opts.description ?? 'd',
     channelTitle: channelName,
+    channelId: opts.channelId ?? 'c1',
   },
   liveStreamingDetails: {
     actualStartTime: '2026-08-06T10:00:00Z',
@@ -76,9 +77,11 @@ test('client: fetchLives maps videos.list into compact live objects', async () =
 
   assert.deepEqual(lives, [{
     videoId: 'v1',
+    channelId: 'c1',
     channelName: '아리스',
     title: '데들리 트릭 8인',
     description: '합방',
+    startedAt: '2026-08-06T10:00:00Z',
     liveViewers: 1200,
   }]);
 });

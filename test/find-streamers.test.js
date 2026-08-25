@@ -121,3 +121,57 @@ test('formatReport: 아무것도 없으면 그렇게 말한다', async () => {
   const result = await collect([{ platform: 'Twitch', run: async () => [] }], { days: 3, now: NOW });
   assert.match(formatReport(result), /해당 기간에 잡힌 방송이 없습니다/);
 });
+
+// ── 통합: 기록기 → 파일 → 수집기
+// 이 흐름이 성립해야 "방송이 끝나 플랫폼에서 사라진 사람"도 목록에 남는다.
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createStreamLog } from '../src/stream-log.js';
+import { createRecorder } from '../src/recorder.js';
+
+test('통합: 기록해둔 방송은 플랫폼에서 사라진 뒤에도 3일 목록에 남는다', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'arisbot-'));
+  const path = join(dir, 'streams.json');
+  try {
+    // 1) 어제, 기록기가 켜져 있던 방송을 봤다.
+    const yesterday = NOW - 30 * 3_600_000;
+    const log = createStreamLog({ path, now: () => yesterday });
+    const recorder = createRecorder({ log });
+    await recorder.tick({
+      platform: 'Twitch',
+      run: async () => [{
+        streamer: '사라진사람', streamerId: '42', title: '추리방송',
+        url: 'https://twitch.tv/gone', startedAt: new Date(yesterday).toISOString(),
+        views: 77, live: true,
+      }],
+    });
+
+    // 2) 오늘 조회 — 플랫폼 검색은 아무것도 못 준다(VOD 를 안 남겼다).
+    const today = createStreamLog({ path, now: () => NOW });
+    const result = await collect([
+      { platform: '기록', filterByTerms: false, run: () => today.entriesSince(NOW - 3 * 86_400_000) },
+      { platform: 'Twitch', filterByTerms: false, run: async () => [] },
+    ], { days: 3, now: NOW });
+
+    assert.deepEqual(result.streamers.map((s) => [s.platform, s.streamer, s.live]), [['Twitch', '사라진사람', false]]);
+    assert.equal(result.streamers[0].peakViews, 77);
+    assert.match(formatReport(result), /사라진사람/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('통합: 기록과 플랫폼 검색에 같은 방송이 들어와도 한 번만 센다', async () => {
+  const same = {
+    streamer: '아리스', streamerId: '1', title: 'Deadly Trick',
+    url: 'https://twitch.tv/aris', startedAt: ago(2), views: 30, live: true,
+  };
+  const result = await collect([
+    { platform: 'Twitch', filterByTerms: false, run: async () => [{ ...same, platform: 'Twitch' }] },  // 기록
+    { platform: 'Twitch', filterByTerms: false, run: async () => [same] },                             // 검색
+  ], { days: 3, now: NOW });
+
+  assert.equal(result.entries.length, 1);
+  assert.equal(result.streamers[0].streams, 1);
+});
