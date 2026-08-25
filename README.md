@@ -119,7 +119,7 @@ sudo systemctl restart arisbot
 
 ## ⚙️ 설정 항목 전체
 
-`.env.example`에 각 항목의 의미가 주석으로 달려 있다. 폴링 주기(`*_POLL_INTERVAL_SEC`, 기본 600초), 시청자 하한(`*_ALERT_MIN_VIEWERS`), 치지직 스캔 깊이(`CHZZK_MAX_PAGES`) 등을 조절할 수 있다.
+`.env.example`에 각 항목의 의미가 주석으로 달려 있다. 폴링 주기(`*_POLL_INTERVAL_SEC`, 기본 600초), 시청자 하한(`*_ALERT_MIN_VIEWERS`, 기본 30명), 치지직 스캔 깊이(`CHZZK_MAX_PAGES`, 기본 50 = 상위 1000개) 등을 조절할 수 있다.
 
 > ⚠️ **치지직 공식 Open API에는 카테고리 필터가 없다.** 전체 라이브 중 시청자수 상위 `CHZZK_MAX_PAGES × 20`개만 훑어 카테고리가 일치하는 방송을 찾으므로, 시청자가 적은 소규모 카테고리는 상위권에 안 떠 놓칠 수 있다.
 >

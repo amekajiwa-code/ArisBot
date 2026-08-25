@@ -67,7 +67,7 @@ test('loadConfig: twitch alert defaults (no credentials → feature off)', () =>
   assert.equal(c.twitchCategoryName, 'Deadly Trick');
   assert.equal(c.twitchGameId, null);
   assert.equal(c.twitchPollIntervalSec, 600);
-  assert.equal(c.twitchAlertMinViewers, 50);
+  assert.equal(c.twitchAlertMinViewers, 30);
 });
 
 test('loadConfig: twitch alert channel falls back to the steam channel when unset', () => {
@@ -106,8 +106,8 @@ test('loadConfig: chzzk alert defaults (no credentials → feature off)', () => 
   assert.equal(c.chzzkCategoryId, 'Deadly_Trick');
   assert.equal(c.chzzkCategoryName, 'Deadly Trick');
   assert.equal(c.chzzkPollIntervalSec, 600);
-  assert.equal(c.chzzkAlertMinViewers, 50);
-  assert.equal(c.chzzkMaxPages, 15);
+  assert.equal(c.chzzkAlertMinViewers, 30);
+  assert.equal(c.chzzkMaxPages, 50);
 });
 
 test('loadConfig: chzzk alert channel falls back to the steam channel when unset', () => {
@@ -128,7 +128,7 @@ test('loadConfig: youtube alert defaults (no api key → feature off)', () => {
   assert.deepEqual(c.youtubeMatchTerms, ['Deadly Trick', '데들리 트릭', 'デッドリートリック']);
   assert.equal(c.youtubeCategoryName, 'Deadly Trick');
   assert.equal(c.youtubePollIntervalSec, 900);
-  assert.equal(c.youtubeAlertMinViewers, 50);
+  assert.equal(c.youtubeAlertMinViewers, 30);
 });
 
 test('loadConfig: youtube alert channel falls back to the steam channel when unset', () => {
@@ -188,10 +188,10 @@ test('loadConfig: 비리비리·니코니코 알림 기본값 (채널 없으면 
   const c = loadConfig(base);
   assert.equal(c.bilibiliAlertEnabled, true);
   assert.equal(c.bilibiliAlertChannelId, null, '채널이 없으면 켜지지 않는다');
-  assert.equal(c.bilibiliAlertMinViewers, 50);
+  assert.equal(c.bilibiliAlertMinViewers, 30);
   assert.equal(c.bilibiliCategoryName, 'Deadly Trick');
   assert.equal(c.nicoAlertEnabled, true);
-  assert.equal(c.nicoAlertMinViewers, 50);
+  assert.equal(c.nicoAlertMinViewers, 30);
 });
 
 test('loadConfig: 두 플랫폼 알림 채널은 Steam 채널로 폴백한다 (다른 알림과 동일)', () => {
