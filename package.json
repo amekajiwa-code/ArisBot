@@ -8,6 +8,7 @@
     "start": "node --env-file=.env src/index.js",
     "dev": "node --env-file=.env --watch src/index.js",
     "find-streamers": "node --env-file=.env scripts/find-streamers.js",
+    "chzzk-depth": "node --env-file=.env scripts/chzzk-depth.js",
     "test": "node --test"
   },
   "engines": {
