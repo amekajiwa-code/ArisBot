@@ -133,3 +133,83 @@ test('client: a non-200 videos response throws', async () => {
 
   await assert.rejects(() => client.fetchLives('q'), /youtube videos HTTP 500/);
 });
+
+// ── fetchRecentStreams: 최근 N일 안에 실제로 시작한 라이브(진행중 + 종료분)
+const streamDetail = (id, channelName, opts = {}) => ({
+  id,
+  snippet: { title: opts.title ?? 't', description: 'd', channelTitle: channelName, channelId: opts.channelId ?? 'c1' },
+  liveStreamingDetails: {
+    ...(opts.startedAt === null ? {} : { actualStartTime: opts.startedAt ?? '2026-08-24T10:00:00Z' }),
+    ...(opts.scheduledAt ? { scheduledStartTime: opts.scheduledAt } : {}),
+    ...(opts.endedAt ? { actualEndTime: opts.endedAt } : {}),
+    ...(opts.viewers === undefined ? {} : { concurrentViewers: String(opts.viewers) }),
+  },
+  statistics: { viewCount: String(opts.viewCount ?? 0) },
+});
+
+test('client: fetchRecentStreams searches live + completed with publishedAfter', async () => {
+  const { fetch, calls } = fakeApi();
+  const client = createYouTubeClient({ apiKey: 'k', fetch });
+
+  await client.fetchRecentStreams('"Deadly Trick"', { publishedAfter: '2026-08-22T12:00:00Z' });
+
+  const types = urlsOf(calls).map((u) => new URL(u).searchParams.get('eventType'));
+  assert.deepEqual(types, ['live', 'completed']);
+  const u = new URL(calls[0].url);
+  assert.equal(u.searchParams.get('order'), 'date');
+  assert.equal(u.searchParams.get('publishedAfter'), '2026-08-22T12:00:00Z');
+});
+
+test('client: fetchRecentStreams marks ended streams and keeps their view count', async () => {
+  const { fetch } = fakeApi({
+    search: [hit('v1'), hit('v2')],
+    videos: [
+      streamDetail('v1', '켜짐', { viewers: 42 }),
+      streamDetail('v2', '끝남', { endedAt: '2026-08-24T13:00:00Z', viewCount: 900 }),
+    ],
+  });
+  const client = createYouTubeClient({ apiKey: 'k', fetch });
+
+  const rows = await client.fetchRecentStreams('q');
+
+  assert.deepEqual(rows.map((r) => [r.channelName, r.live, r.liveViewers, r.viewCount]), [
+    ['켜짐', true, 42, 0],
+    ['끝남', false, 0, 900],
+  ]);
+  assert.equal(rows[0].startedAt, '2026-08-24T10:00:00Z');
+});
+
+test('client: fetchRecentStreams drops plain videos and not-yet-started schedules', async () => {
+  const { fetch } = fakeApi({
+    search: [hit('v1'), hit('v2'), hit('v3')],
+    videos: [
+      streamDetail('v1', '방송함'),
+      { id: 'v2', snippet: { channelTitle: '일반영상' } },                                    // liveStreamingDetails 없음
+      streamDetail('v3', '예약만', { startedAt: null, scheduledAt: '2026-08-30T10:00:00Z' }), // 아직 안 켬
+    ],
+  });
+  const client = createYouTubeClient({ apiKey: 'k', fetch });
+
+  const rows = await client.fetchRecentStreams('q');
+
+  assert.deepEqual(rows.map((r) => r.channelName), ['방송함']);
+});
+
+test('client: fetchRecentStreams dedupes ids across the two searches into one videos.list call', async () => {
+  const { fetch, calls } = fakeApi({ search: [hit('v1'), hit('v1')], videos: [streamDetail('v1', 'A')] });
+  const client = createYouTubeClient({ apiKey: 'k', fetch });
+
+  await client.fetchRecentStreams('q');
+
+  const videoCalls = urlsOf(calls).filter((u) => u.includes('/videos?'));
+  assert.equal(videoCalls.length, 1);
+  assert.equal(new URL(videoCalls[0]).searchParams.get('id'), 'v1');
+});
+
+test('client: fetchRecentStreams skips videos.list when nothing was found', async () => {
+  const { fetch, calls } = fakeApi();
+  const client = createYouTubeClient({ apiKey: 'k', fetch });
+
+  assert.deepEqual(await client.fetchRecentStreams('q'), []);
+  assert.equal(urlsOf(calls).filter((u) => u.includes('/videos?')).length, 0);
+});

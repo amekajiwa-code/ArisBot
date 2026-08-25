@@ -50,5 +50,57 @@ export function createYouTubeClient({ apiKey, fetch = globalThis.fetch }) {
       }));
   }
 
-  return { fetchLives };
+  /**
+   * 최근 N일 안에 "실제로 시작한" 라이브(진행중 + 종료분). search.list 는 eventType 별로
+   * 한 번씩 필요하고(각 100 unit) videos.list 로 시작/종료 시각과 시청자수를 채운다.
+   * 예약만 걸린 방송(actualStartTime 없음)은 방송한 적이 없으므로 버린다.
+   *
+   * @param {string} query
+   * @param {{publishedAfter?: string, eventTypes?: string[], maxResults?: number}} opts
+   *        publishedAfter 는 RFC3339 (예: 2026-08-22T00:00:00Z)
+   */
+  async function fetchRecentStreams(query, { publishedAfter, eventTypes = ['live', 'completed'], maxResults = 50 } = {}) {
+    const ids = new Set();
+    for (const eventType of eventTypes) {
+      const found = await getJson('search', {
+        part: 'snippet',
+        type: 'video',
+        eventType,
+        order: 'date',
+        maxResults: String(maxResults),
+        q: query,
+        ...(publishedAfter ? { publishedAfter } : {}),
+      }, 'search');
+      for (const i of found?.items ?? []) if (i?.id?.videoId) ids.add(i.id.videoId);
+    }
+    if (!ids.size) return [];
+
+    const all = [...ids];
+    const out = [];
+    for (let i = 0; i < all.length; i += 50) {                 // videos.list 는 한 번에 50개
+      const detailed = await getJson('videos', {
+        part: 'snippet,liveStreamingDetails,statistics',
+        id: all.slice(i, i + 50).join(','),
+      }, 'videos');
+      for (const v of detailed?.items ?? []) {
+        const d = v?.liveStreamingDetails;
+        if (!d?.actualStartTime) continue;                     // 일반 영상 · 예약만 된 방송
+        out.push({
+          videoId: v.id,
+          channelId: v.snippet?.channelId,
+          channelName: v.snippet?.channelTitle,
+          title: v.snippet?.title,
+          description: v.snippet?.description,
+          startedAt: d.actualStartTime,
+          endedAt: d.actualEndTime ?? null,
+          live: !d.actualEndTime,
+          liveViewers: Number(d.concurrentViewers ?? 0),
+          viewCount: Number(v.statistics?.viewCount ?? 0),
+        });
+      }
+    }
+    return out;
+  }
+
+  return { fetchLives, fetchRecentStreams };
 }

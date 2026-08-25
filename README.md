@@ -121,6 +121,48 @@ sudo systemctl restart arisbot
 
 ---
 
+## 🔎 최근 N일 방송한 사람 찾기 (일회성 CLI)
+
+알림은 "지금 켜진 방송"만 본다. **"지난 3일 안에 이 게임 방송한 사람 다 뽑아줘"** 는
+별도 CLI로 한다. 봇을 안 띄우고도 돌아간다.
+
+```bash
+node scripts/find-streamers.js                 # 최근 3일 (기본)
+node scripts/find-streamers.js --days 7        # 최근 7일
+node scripts/find-streamers.js --json          # 기계용 출력
+npm run find-streamers -- --days 3             # .env 를 읽어서 실행
+```
+
+```
+# Deadly Trick — 최근 3일 방송자 (08. 22. 21:56 ~ 08. 25. 21:56, KST)
+총 12명 / 방송·영상 19건
+
+## Twitch — 5명
+- 아무개 ×2 — 🔴 방송중 · 340
+    오늘도 추리방송
+    https://www.twitch.tv/nobody
+...
+⏭  YouTube: YOUTUBE_API_KEY 미설정 — 건너뜀
+⚠️  비리비리 조회 실패: bilibili video code -412 (풍제어 — BILIBILI_COOKIE 에 …)
+```
+
+같은 사람이 여러 번 방송했으면 `×N` 으로 묶고 가장 최근 방송을 보여준다.
+자격증명이 없는 플랫폼은 `⏭` 로 건너뛰고, 한 곳이 실패해도 나머지는 그대로 나온다.
+
+| 플랫폼 | 필요한 것 | 어떻게 찾나 |
+| --- | --- | --- |
+| **Twitch** | `TWITCH_CLIENT_ID` + `TWITCH_CLIENT_SECRET` | 카테고리(game_id)로 현재 방송 + 지난 VOD. **가장 정확** |
+| **YouTube** | `YOUTUBE_API_KEY` | 검색어로 진행중·종료된 라이브. 실행 1회당 `search.list` 2회 소모(하루 100회 한도) |
+| **비리비리** | 없음 (막히면 `BILIBILI_COOKIE`) | 웹 검색 — 방송중인 방 + 최근 투고 영상 |
+| **니코니코** | 없음 | 스냅샷 검색 API(영상) + 생방송 검색(방송중·최근 종료) |
+
+> ⚠️ **"전부"의 한계.** 게임 카테고리로 정확히 뒤질 수 있는 건 Twitch뿐이고, 나머지 셋은
+> 검색어 기반이라 **제목·설명·태그 어디에도 게임명을 안 쓴 방송은 원리상 못 찾는다.**
+> 트위치도 VOD를 안 남기는 채널은 방송이 끝나면 공개된 흔적이 없다. 자세한 건
+> `docs/superpowers/specs/2026-08-25-multi-platform-streamer-finder-design.md` 참고.
+
+---
+
 ## 🛠 로컬 개발
 
 ```bash

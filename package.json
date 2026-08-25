@@ -1,12 +1,13 @@
 {
   "name": "arisbot-notify",
   "version": "2.0.0",
-  "description": "ArisBot — Discord notification bot: Steam player-count + Twitch/CHZZK category live alerts. Runs 24/7 on a cloud VM.",
+  "description": "ArisBot \u2014 Discord notification bot: Steam player-count + Twitch/CHZZK category live alerts. Runs 24/7 on a cloud VM.",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
     "start": "node --env-file=.env src/index.js",
     "dev": "node --env-file=.env --watch src/index.js",
+    "find-streamers": "node --env-file=.env scripts/find-streamers.js",
     "test": "node --test"
   },
   "engines": {

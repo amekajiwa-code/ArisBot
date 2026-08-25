@@ -46,18 +46,64 @@ export function createTwitchClient({ clientId, clientSecret, fetch = globalThis.
     },
 
     /**
-     * Live streams in a category (up to 100), mapped to compact objects.
-     * @returns {Promise<Array<{userId,userName,login,viewerCount,title}>>}
+     * Live streams in a category (100 per page), mapped to compact objects.
+     * Pages only when `maxPages` > 1 — the alert path stays a single call.
+     * @returns {Promise<Array<{userId,userName,login,viewerCount,title,startedAt}>>}
      */
-    async fetchStreams(gameId) {
-      const data = await helix(`/streams?game_id=${encodeURIComponent(gameId)}&first=100`);
-      return (data?.data ?? []).map((s) => ({
-        userId: s.user_id,
-        userName: s.user_name,
-        login: s.user_login,
-        viewerCount: s.viewer_count,
-        title: s.title,
-      }));
+    async fetchStreams(gameId, { maxPages = 1 } = {}) {
+      const out = [];
+      let after;
+      for (let page = 0; page < maxPages; page++) {
+        const qs = new URLSearchParams({ game_id: gameId, first: '100' });
+        if (after) qs.set('after', after);
+        const data = await helix(`/streams?${qs}`);
+        for (const s of data?.data ?? []) {
+          out.push({
+            userId: s.user_id,
+            userName: s.user_name,
+            login: s.user_login,
+            viewerCount: s.viewer_count,
+            title: s.title,
+            startedAt: s.started_at ?? null,
+          });
+        }
+        after = data?.pagination?.cursor;
+        if (!after || !(data?.data ?? []).length) break;
+      }
+      return out;
+    },
+
+    /**
+     * Past broadcasts (VODs) in a category, newest first — this is how a finished
+     * stream is found after the fact. `period` is Helix's own bucket
+     * ("day" | "week" | "month" | "all"); callers still filter by exact timestamp.
+     * Only channels that keep VODs show up here (Twitch's only public backlog).
+     * @returns {Promise<Array<{id,userId,userName,login,title,url,publishedAt,viewCount,duration}>>}
+     */
+    async fetchVideos(gameId, { period = 'week', maxPages = 3, type = 'archive' } = {}) {
+      const out = [];
+      let after;
+      for (let page = 0; page < maxPages; page++) {
+        const qs = new URLSearchParams({ game_id: gameId, period, sort: 'time', type, first: '100' });
+        if (after) qs.set('after', after);
+        const data = await helix(`/videos?${qs}`);
+        for (const v of data?.data ?? []) {
+          out.push({
+            id: v.id,
+            userId: v.user_id,
+            userName: v.user_name,
+            login: v.user_login,
+            title: v.title,
+            url: v.url,
+            publishedAt: v.published_at ?? v.created_at ?? null,
+            viewCount: Number(v.view_count ?? 0),
+            duration: v.duration ?? null,
+          });
+        }
+        after = data?.pagination?.cursor;
+        if (!after || !(data?.data ?? []).length) break;
+      }
+      return out;
     },
   };
 }

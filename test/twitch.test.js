@@ -45,7 +45,10 @@ test('client: fetchStreams maps the Helix payload to compact stream objects', as
   const { fetch } = fakeFetch([
     ['oauth2/token', () => ok({ access_token: 'T', expires_in: 3600 })],
     ['/streams', () => ok({ data: [
-      { user_id: '1', user_name: 'Aris', user_login: 'aris', viewer_count: 42, title: 'live!' },
+      {
+        user_id: '1', user_name: 'Aris', user_login: 'aris',
+        viewer_count: 42, title: 'live!', started_at: '2026-08-25T09:00:00Z',
+      },
     ] })],
   ]);
   const client = createTwitchClient({ clientId: 'c', clientSecret: 's', fetch });
@@ -53,7 +56,10 @@ test('client: fetchStreams maps the Helix payload to compact stream objects', as
   const streams = await client.fetchStreams('777');
 
   assert.deepEqual(streams, [
-    { userId: '1', userName: 'Aris', login: 'aris', viewerCount: 42, title: 'live!' },
+    {
+      userId: '1', userName: 'Aris', login: 'aris',
+      viewerCount: 42, title: 'live!', startedAt: '2026-08-25T09:00:00Z',
+    },
   ]);
 });
 
@@ -90,4 +96,62 @@ test('client: refreshes the token once on a 401 and retries the request', async 
   assert.deepEqual(streams, []);
   assert.equal(tokenHits, 2);  // initial + refresh
   assert.equal(streamHits, 2); // initial 401 + retry
+});
+
+test('client: fetchVideos lists a category\'s past broadcasts newest-first', async () => {
+  const { fetch, calls } = fakeFetch([
+    ['oauth2/token', () => ok({ access_token: 'T', expires_in: 3600 })],
+    ['/videos', () => ok({ data: [{
+      id: 'v9', user_id: '1', user_name: 'Aris', user_login: 'aris',
+      title: '어제 방송', url: 'https://www.twitch.tv/videos/v9',
+      published_at: '2026-08-24T09:00:00Z', view_count: 300, duration: '3h20m',
+    }] })],
+  ]);
+  const client = createTwitchClient({ clientId: 'c', clientSecret: 's', fetch });
+
+  const videos = await client.fetchVideos('777');
+
+  const u = new URL(calls[1].url);
+  assert.equal(u.searchParams.get('game_id'), '777');
+  assert.equal(u.searchParams.get('period'), 'week');
+  assert.equal(u.searchParams.get('sort'), 'time');
+  assert.equal(u.searchParams.get('type'), 'archive');
+  assert.deepEqual(videos, [{
+    id: 'v9', userId: '1', userName: 'Aris', login: 'aris',
+    title: '어제 방송', url: 'https://www.twitch.tv/videos/v9',
+    publishedAt: '2026-08-24T09:00:00Z', viewCount: 300, duration: '3h20m',
+  }]);
+});
+
+test('client: fetchVideos follows the pagination cursor up to maxPages', async () => {
+  let page = 0;
+  const { fetch, calls } = fakeFetch([
+    ['oauth2/token', () => ok({ access_token: 'T', expires_in: 3600 })],
+    ['/videos', () => {
+      page++;
+      return ok({
+        data: [{ id: `v${page}`, user_id: String(page), user_name: `U${page}`, user_login: `u${page}` }],
+        pagination: { cursor: `c${page}` },
+      });
+    }],
+  ]);
+  const client = createTwitchClient({ clientId: 'c', clientSecret: 's', fetch });
+
+  const videos = await client.fetchVideos('777', { maxPages: 3 });
+
+  assert.deepEqual(videos.map((v) => v.id), ['v1', 'v2', 'v3']);
+  assert.equal(new URL(calls[3].url).searchParams.get('after'), 'c2');
+});
+
+test('client: fetchStreams pages only when asked, and stops without a cursor', async () => {
+  let hits = 0;
+  const { fetch } = fakeFetch([
+    ['oauth2/token', () => ok({ access_token: 'T', expires_in: 3600 })],
+    ['/streams', () => { hits++; return ok({ data: [{ user_id: String(hits) }] }); }],
+  ]);
+  const client = createTwitchClient({ clientId: 'c', clientSecret: 's', fetch });
+
+  await client.fetchStreams('777', { maxPages: 5 });
+
+  assert.equal(hits, 1);   // no pagination.cursor in the response → single page
 });
