@@ -44,6 +44,9 @@ command -v npm >/dev/null 2>&1 || apt-get install -y -qq npm
 
 log "3/6  코드 배치 ($APP_DIR)"
 if [ -d "$APP_DIR/.git" ]; then
+  # 재실행. 파일 소유자는 arisbot 인데 이 스크립트는 root 라서, 그냥 pull 하면
+  # git 이 "dubious ownership" 으로 거부한다. 예외를 등록해 두고 받는다.
+  git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
   git -C "$APP_DIR" pull --ff-only
 else
   mkdir -p "$APP_DIR"

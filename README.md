@@ -143,10 +143,15 @@ journalctl -u arisbot -f                 # 실시간 로그
 ### 5. 업데이트 (코드 변경 후)
 
 ```bash
-cd /opt/arisbot
-git pull
-npm ci --omit=dev
+# 파일 소유자가 arisbot 이라 root 로 pull 하면 git 이 "dubious ownership" 으로 거부한다.
+# 그 계정으로 받아야 한다.
+sudo -u arisbot git -C /opt/arisbot pull --ff-only
+
+# 의존성이 바뀐 경우에만 (root 로 설치 후 소유권 돌려주기)
+sudo npm --prefix /opt/arisbot ci --omit=dev && sudo chown -R arisbot:arisbot /opt/arisbot
+
 sudo systemctl restart arisbot
+journalctl -u arisbot -n 20 --no-pager
 ```
 
 ---
