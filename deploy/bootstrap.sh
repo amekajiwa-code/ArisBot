@@ -23,14 +23,24 @@ apt-get update -qq
 apt-get install -y -qq curl ca-certificates git
 
 log "2/6  Node.js (>=20.6)"
-if command -v node >/dev/null 2>&1 \
-   && node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>20||(a===20&&b>=6)?0:1)'; then
+node_ok() {
+  command -v node >/dev/null 2>&1     && node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>20||(a===20&&b>=6)?0:1)'
+}
+if node_ok; then
   echo "  이미 설치됨: $(node -v)  ($(dpkg --print-architecture))"
 else
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-  apt-get install -y -qq nodejs
-  echo "  설치 완료: $(node -v)"
+  # NodeSource 우선. 아주 새 우분투(26.04 등)는 아직 미지원일 수 있어서
+  # 실패하면 배포판 기본 nodejs 로 폴백한다.
+  if curl -fsSL https://deb.nodesource.com/setup_20.x | bash -      && apt-get install -y -qq nodejs; then
+    echo "  NodeSource 로 설치: $(node -v)"
+  else
+    warn "NodeSource 실패 — 배포판 기본 nodejs 로 폴백"
+    apt-get install -y -qq nodejs npm
+    echo "  apt 로 설치: $(node -v 2>/dev/null || echo '없음')"
+  fi
+  node_ok || die "Node >=20.6 이 필요한데 현재 $(node -v 2>/dev/null || echo '미설치') 다. 수동 설치가 필요하다."
 fi
+command -v npm >/dev/null 2>&1 || apt-get install -y -qq npm
 
 log "3/6  코드 배치 ($APP_DIR)"
 if [ -d "$APP_DIR/.git" ]; then
