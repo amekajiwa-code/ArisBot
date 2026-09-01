@@ -67,7 +67,7 @@ test('loadConfig: twitch alert defaults (no credentials → feature off)', () =>
   assert.equal(c.twitchCategoryName, 'Deadly Trick');
   assert.equal(c.twitchGameId, null);
   assert.equal(c.twitchPollIntervalSec, 600);
-  assert.equal(c.twitchAlertMinViewers, 30);
+  assert.equal(c.twitchAlertMinViewers, 50);
 });
 
 test('loadConfig: twitch alert channel falls back to the steam channel when unset', () => {
@@ -106,7 +106,7 @@ test('loadConfig: chzzk alert defaults (no credentials → feature off)', () => 
   assert.equal(c.chzzkCategoryId, 'Deadly_Trick');
   assert.equal(c.chzzkCategoryName, 'Deadly Trick');
   assert.equal(c.chzzkPollIntervalSec, 600);
-  assert.equal(c.chzzkAlertMinViewers, 30);
+  assert.equal(c.chzzkAlertMinViewers, 50);
   assert.equal(c.chzzkMaxPages, 50);
 });
 

@@ -83,7 +83,7 @@ export function loadConfig(env = process.env) {
     twitchCategoryName: env.TWITCH_CATEGORY_NAME?.trim() || 'Deadly Trick',
     twitchGameId: env.TWITCH_GAME_ID?.trim() || null,
     twitchPollIntervalSec: num(env, 'TWITCH_POLL_INTERVAL_SEC', 600),
-    twitchAlertMinViewers: num(env, 'TWITCH_ALERT_MIN_VIEWERS', 30),
+    twitchAlertMinViewers: num(env, 'TWITCH_ALERT_MIN_VIEWERS', 50),
     // CHZZK(치지직) category live alert (disabled unless CHZZK_CLIENT_ID + CHZZK_CLIENT_SECRET are set).
     // Official Open API has no category filter, so it scans the top CHZZK_MAX_PAGES×20 lives.
     chzzkClientId: env.CHZZK_CLIENT_ID?.trim() || null,
@@ -93,7 +93,7 @@ export function loadConfig(env = process.env) {
     chzzkCategoryId: env.CHZZK_CATEGORY_ID?.trim() || 'Deadly_Trick',
     chzzkCategoryName: env.CHZZK_CATEGORY_NAME?.trim() || 'Deadly Trick',
     chzzkPollIntervalSec: num(env, 'CHZZK_POLL_INTERVAL_SEC', 600),
-    chzzkAlertMinViewers: num(env, 'CHZZK_ALERT_MIN_VIEWERS', 30),
+    chzzkAlertMinViewers: num(env, 'CHZZK_ALERT_MIN_VIEWERS', 50),
     chzzkMaxPages: num(env, 'CHZZK_MAX_PAGES', 50),   // 50×20 = 상위 1000개
     // YouTube. 라이브 알림에서는 뺐다(쿼터 100회/일이라 15분 주기가 한계였고, 키도 안 쓴다).
     // 아래 값들은 방송자 수집 CLI(find-streamers)가 계속 쓰고, 알림을 되살릴 때 그대로 재사용한다.
