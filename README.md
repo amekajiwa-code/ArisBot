@@ -41,6 +41,37 @@
 
 Google Cloud Compute Engine `e2-micro`(Always Free 티어)에 Ubuntu 22.04/24.04를 띄운 경우를 기준으로 한다. 다른 VPS(Oracle Cloud Free, AWS Lightsail 등)도 동일하다.
 
+### 0. 한 방에 설치 (권장)
+
+새 서버에 SSH로 붙어 아래 세 줄이면 끝난다. Node 설치 · 코드 배치 · 의존성 · 전용 유저 · systemd 등록까지 한다.
+
+```bash
+sudo apt-get update && sudo apt-get install -y git
+sudo git clone --depth 1 https://github.com/amekajiwa-code/ArisBot.git /opt/arisbot
+sudo bash /opt/arisbot/deploy/bootstrap.sh
+```
+
+`arm64`(AWS `t4g`, Oracle Ampere A1)에서도 그대로 동작한다. 유닛 파일의 `node` 절대경로는 스크립트가 실제 설치 경로로 맞춰준다.
+
+> ⚠️ 스크립트는 **서비스를 시작하지 않는다.** `.env`를 채운 뒤 직접 `systemctl start arisbot` 해야 한다.
+> 기존 서버를 안 끄고 새 서버를 켜면 **같은 봇 토큰으로 알림이 두 번 나간다.**
+> 순서: 새 서버 설치 → `.env` 채우기 → **기존 서버 `stop`** → 새 서버 `start` → 로그 확인.
+> 문제가 생기면 새 서버를 `stop` 하고 기존 서버를 다시 `start` 하면 그대로 되돌아간다.
+
+#### EC2 인스턴스를 만들 때
+
+| 항목 | 값 |
+| --- | --- |
+| AMI | Ubuntu Server 24.04 LTS |
+| 인스턴스 타입 | `t4g.micro` (ARM, 더 쌈) 또는 `t3.micro` |
+| 스토리지 | gp3 8GB |
+| 보안 그룹 **인바운드** | **SSH(22)만** |
+| 보안 그룹 **아웃바운드** | 기본값(전체 허용) 그대로 |
+
+이 봇은 HTTP 서버를 띄우지 않고 디스코드로 나가는 아웃바운드만 쓴다. 그래서 **인바운드는 SSH 말고 열 게 없다.**
+
+아래 1~4는 스크립트가 대신 해주는 일을 손으로 하는 절차다.
+
 ### 1. Node.js 20+ 설치
 
 ```bash
