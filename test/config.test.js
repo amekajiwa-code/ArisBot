@@ -188,10 +188,15 @@ test('loadConfig: 비리비리·니코니코 알림 기본값 (채널 없으면 
   const c = loadConfig(base);
   assert.equal(c.bilibiliAlertEnabled, true);
   assert.equal(c.bilibiliAlertChannelId, null, '채널이 없으면 켜지지 않는다');
-  assert.equal(c.bilibiliAlertMinViewers, 30);
+  assert.equal(c.bilibiliAlertMinViewers, 1000, '비리비리 online 값은 크게 부풀려져 하한도 높다');
   assert.equal(c.bilibiliCategoryName, 'Deadly Trick');
   assert.equal(c.nicoAlertEnabled, true);
-  assert.equal(c.nicoAlertMinViewers, 30);
+  assert.equal(c.nicoAlertMinViewers, 1000);
+});
+
+test('loadConfig: 같은 방송 재알림 금지 기간은 기본 6시간', () => {
+  assert.equal(loadConfig(base).liveAlertCooldownSec, 21600);
+  assert.equal(loadConfig({ ...base, LIVE_ALERT_COOLDOWN_SEC: '60' }).liveAlertCooldownSec, 60);
 });
 
 test('loadConfig: 두 플랫폼 알림 채널은 Steam 채널로 폴백한다 (다른 알림과 동일)', () => {

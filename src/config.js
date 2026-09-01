@@ -36,12 +36,15 @@ export function loadFinderConfig(env = process.env) {
     bilibiliAlertChannelId:
       env.BILIBILI_ALERT_CHANNEL_ID?.trim() || env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
     bilibiliCategoryName: env.BILIBILI_CATEGORY_NAME?.trim() || 'Deadly Trick',
-    bilibiliAlertMinViewers: num(env, 'BILIBILI_ALERT_MIN_VIEWERS', 30),
+    // 검색 기반 두 플랫폼의 시청자수는 실시청자보다 크게 부풀려진 값이라 하한을 높게 잡는다.
+    bilibiliAlertMinViewers: num(env, 'BILIBILI_ALERT_MIN_VIEWERS', 1000),
     nicoAlertEnabled: (env.NICO_ALERT_ENABLED?.trim() || '1') !== '0',
     nicoAlertChannelId:
       env.NICO_ALERT_CHANNEL_ID?.trim() || env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
     nicoCategoryName: env.NICO_CATEGORY_NAME?.trim() || 'Deadly Trick',
-    nicoAlertMinViewers: num(env, 'NICO_ALERT_MIN_VIEWERS', 30),
+    nicoAlertMinViewers: num(env, 'NICO_ALERT_MIN_VIEWERS', 1000),
+    // 검색 결과가 깜빡여도(순위·시청자수 경계) 같은 방송을 이 시간 안에 다시 알리지 않는다.
+    liveAlertCooldownSec: num(env, 'LIVE_ALERT_COOLDOWN_SEC', 21600),
     // 방송 목격 기록 — "지난 N일에 누가 방송했나"를 검색이 아니라 우리 기록으로 답하기 위한 것.
     recorderEnabled: (env.RECORDER_ENABLED?.trim() || '1') !== '0',
     streamLogPath: env.STREAM_LOG_PATH?.trim() || 'data/streams.json',
@@ -92,8 +95,8 @@ export function loadConfig(env = process.env) {
     chzzkPollIntervalSec: num(env, 'CHZZK_POLL_INTERVAL_SEC', 600),
     chzzkAlertMinViewers: num(env, 'CHZZK_ALERT_MIN_VIEWERS', 30),
     chzzkMaxPages: num(env, 'CHZZK_MAX_PAGES', 50),   // 50×20 = 상위 1000개
-    // YouTube live alert (disabled unless YOUTUBE_API_KEY is set).
-    // search.list is capped at 100 calls/day, hence the 900s default interval.
+    // YouTube. 라이브 알림에서는 뺐다(쿼터 100회/일이라 15분 주기가 한계였고, 키도 안 쓴다).
+    // 아래 값들은 방송자 수집 CLI(find-streamers)가 계속 쓰고, 알림을 되살릴 때 그대로 재사용한다.
     youtubeApiKey: env.YOUTUBE_API_KEY?.trim() || null,
     youtubeAlertChannelId:
       env.YOUTUBE_ALERT_CHANNEL_ID?.trim() || env.STEAM_ALERT_CHANNEL_ID?.trim() || null,

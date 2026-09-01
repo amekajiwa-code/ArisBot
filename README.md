@@ -1,6 +1,6 @@
 # 🤖 ArisBot (알림 전용)
 
-> Steam 동접자 · Twitch · 치지직 · YouTube · 비리비리 · 니코니코 라이브를 감시해 Discord 채널로 알려주고,
+> Steam 동접자 · Twitch · 치지직 · 비리비리 · 니코니코 라이브를 감시해 Discord 채널로 알려주고,
 > "지난 N일에 누가 방송했나"를 기록해 두는 봇.
 > 클라우드 VM(예: Google Cloud `e2-micro`, Ubuntu)에서 24시간 구동한다.
 
@@ -20,9 +20,12 @@
 | **Steam 동접자** | 직전 알림값보다 `THRESHOLD` 이상 **증가**했고 현재 동접이 `MIN_COUNT` 이상일 때 SteamDB 링크 임베드 |
 | **Twitch 라이브** | 지정 카테고리에 새 방송이 켜지면 "{채널}님이 {카테고리} 방송중!" 임베드 |
 | **치지직 라이브** | 지정 카테고리에 새 방송이 켜지면 동일 형식 임베드 (공식 Open API 한계상 시청자 상위권만 훑음) |
-| **YouTube 라이브** | 지정 검색어로 라이브를 훑어 동일 형식 임베드 (공식 API 쿼터 한도상 15분 주기) |
 | **비리비리 라이브** | 지정 검색어로 방송중인 방을 훑어 동일 형식 임베드 (기록기 주기 = 60초) |
 | **니코니코 라이브** | 지정 검색어로 방송중인 생방송을 훑어 동일 형식 임베드 (기록기 주기 = 60초) |
+
+라이브 알림은 모두 **"직전에 없던 방송"이 나타났을 때 한 번**만 울린다. 비리비리·니코니코는
+검색 결과가 순위·시청자수 경계에서 깜빡여(목록에서 빠졌다 돌아옴) 같은 방송이 다시 켜진 것처럼
+보일 수 있어, 한 번 알린 방송은 `LIVE_ALERT_COOLDOWN_SEC`(기본 6시간) 동안 다시 알리지 않는다.
 
 여기에 더해 **방송 기록기**가 1분마다 훑어 "누가 언제 방송했나"를 파일에 남긴다(알림은 안 보낸다).
 나중에 `npm run find-streamers` 로 **"지난 3일 안에 방송한 사람 전부"** 를 뽑을 때 이 기록을 읽는다.
@@ -71,11 +74,11 @@ nano .env                  # 아래 표를 보고 채우기
 | `STEAM_APP_ID` / `STEAM_GAME_NAME` | 감시할 게임 (기본값은 예시 게임) |
 | `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` _(선택)_ | 둘 다 채우면 Twitch 알림 켜짐 ([dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps), Confidential 앱) |
 | `CHZZK_CLIENT_ID` / `CHZZK_CLIENT_SECRET` _(선택)_ | 둘 다 채우면 치지직 알림 켜짐 ([developers.chzzk.naver.com](https://developers.chzzk.naver.com)) |
-| `YOUTUBE_API_KEY` _(선택)_ | 채우면 YouTube 알림 켜짐 (Google Cloud Console → YouTube Data API v3 사용 설정 → API 키) |
+| `YOUTUBE_API_KEY` _(선택)_ | 방송자 수집 CLI(`npm run find-streamers`)에서만 쓴다. **라이브 알림에서는 뺐다** (Google Cloud Console → YouTube Data API v3 사용 설정 → API 키) |
 | `BILIBILI_ALERT_CHANNEL_ID` / `NICO_ALERT_CHANNEL_ID` _(선택)_ | 비리비리·니코니코 알림 채널. 안 정하면 `STEAM_ALERT_CHANNEL_ID` 를 쓰고, 그것도 없으면 꺼짐. 끄려면 `BILIBILI_ALERT_ENABLED=0` / `NICO_ALERT_ENABLED=0` |
 
 > 채널 id는 디스코드에서 **사용자 설정 → 고급 → 개발자 모드**를 켠 뒤 채널 우클릭 → **채널 ID 복사**.
-> Twitch·치지직·YouTube 알림 채널을 따로 안 정하면 `STEAM_ALERT_CHANNEL_ID`와 같은 채널을 쓴다.
+> Twitch·치지직 알림 채널을 따로 안 정하면 `STEAM_ALERT_CHANNEL_ID`와 같은 채널을 쓴다.
 
 먼저 한 번 직접 띄워 로그인·알림이 되는지 확인:
 
@@ -119,7 +122,9 @@ sudo systemctl restart arisbot
 
 ## ⚙️ 설정 항목 전체
 
-`.env.example`에 각 항목의 의미가 주석으로 달려 있다. 폴링 주기(`*_POLL_INTERVAL_SEC`, 기본 600초), 시청자 하한(`*_ALERT_MIN_VIEWERS`, 기본 30명), 치지직 스캔 깊이(`CHZZK_MAX_PAGES`, 기본 50 = 상위 1000개) 등을 조절할 수 있다.
+`.env.example`에 각 항목의 의미가 주석으로 달려 있다. 폴링 주기(`*_POLL_INTERVAL_SEC`, 기본 600초), 시청자 하한(`*_ALERT_MIN_VIEWERS`, 기본 30명 — **비리비리·니코니코는 1000명**), 재알림 금지 기간(`LIVE_ALERT_COOLDOWN_SEC`, 기본 6시간), 치지직 스캔 깊이(`CHZZK_MAX_PAGES`, 기본 50 = 상위 1000개) 등을 조절할 수 있다.
+
+> 비리비리·니코니코의 시청자수는 실제보다 크게 부풀려진 값이라, 같은 "30명"이 다른 플랫폼과 전혀 다른 규모를 뜻한다. 그래서 이 둘만 하한 기본값이 1000이다.
 
 > ⚠️ **치지직 공식 Open API에는 카테고리 필터가 없다.** 전체 라이브 중 시청자수 상위 `CHZZK_MAX_PAGES × 20`개만 훑어 카테고리가 일치하는 방송을 찾으므로, 시청자가 적은 소규모 카테고리는 상위권에 안 떠 놓칠 수 있다.
 >
@@ -128,9 +133,9 @@ sudo systemctl restart arisbot
 > — 그 아래는 하한을 넘을 수 없기 때문이다. 시간대에 따라 달라지니 피크(저녁)에 재보는 게 의미 있다.
 > 단 **기록기는 시청자 하한이 없어** 못 본 구간의 소규모 방송은 기록에서 빠진다(명단이 성겨짐).
 >
-> ⚠️ **YouTube의 `search.list`는 하루 100회가 한도다.** (다른 엔드포인트의 10,000 unit 풀과 별개인 전용 버킷.) 그래서 `YOUTUBE_POLL_INTERVAL_SEC` 기본값이 900초(15분, 하루 96회)이고, 이보다 짧게 두면 기동 시 경고가 뜨고 그날 쿼터를 태워버린다. 시청자수는 검색 응답에 없어 `videos.list`로 한 번 더 조회해 채운다(1 unit).
+> ⚠️ **YouTube의 `search.list`는 하루 100회가 한도다.** (다른 엔드포인트의 10,000 unit 풀과 별개인 전용 버킷.) 라이브 알림을 15분 주기로 묶어야 했던 이유이고, **알림에서 YouTube를 뺀 이유**이기도 하다. 지금은 방송자 수집 CLI가 실행할 때만 이 쿼터를 쓴다(1회당 `search.list` 2회).
 >
-> ⚠️ **YouTube엔 게임 카테고리로 라이브를 조회하는 API가 없다.** 제목·설명·태그를 훑는 검색어(`YOUTUBE_SEARCH_QUERY`)에 의존하므로, 게임명을 어디에도 안 적은 방송은 놓친다. 반대로 검색은 관련성 기반이라 엉뚱한 방송도 물어오는데, 이건 `YOUTUBE_MATCH_TERMS`로 한 번 더 거른다.
+> ⚠️ **YouTube엔 게임 카테고리로 라이브를 조회하는 API가 없다.** 제목·설명·태그를 훑는 검색어(`YOUTUBE_SEARCH_QUERY`)에 의존하므로, 게임명을 어디에도 안 적은 방송은 놓친다(수집 CLI에도 그대로 적용되는 한계). 반대로 검색은 관련성 기반이라 엉뚱한 방송도 물어오는데, 이건 `YOUTUBE_MATCH_TERMS`로 한 번 더 거른다.
 
 ---
 
@@ -151,7 +156,6 @@ sudo systemctl restart arisbot
 | Twitch | **60초** | Helix 카테고리 조회. 요청 1회/분이라 rate limit(800/분) 대비 여유 |
 | 비리비리 | **60초** | 공개 웹 검색 — **라이브 알림도 이 폴링을 같이 쓴다** |
 | 니코니코 | **60초** | 생방송 검색 — **라이브 알림도 이 폴링을 같이 쓴다** |
-| YouTube | **15분** | `search.list` 가 **하루 100회** 한도라 1분 폴링이 물리적으로 불가능하다. 알림 폴링(15분) 결과를 그대로 얻어 적으므로 **추가 요청 0회** |
 
 ### 뽑기
 

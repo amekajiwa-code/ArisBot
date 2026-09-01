@@ -23,6 +23,24 @@ function watcher(over = {}) {
   return { w, sent, titles: () => sent.map((p) => p.embeds[0].title) };
 }
 
+// 시각을 손으로 돌리는 워처 — 재알림 억제(쿨다운) 검증용.
+function clockWatcher(over = {}) {
+  let t = 0;
+  const sent = [];
+  const w = createLiveWatcher({
+    send: async (p) => sent.push(p),
+    categoryName: 'Deadly Trick',
+    minViewers: 50,
+    platform: '비리비리',
+    color: COLORS.bilibili,
+    matchTerms: [],
+    cooldownMs: 6 * 3600_000,
+    now: () => t,
+    ...over,
+  });
+  return { w, sent, tick: (ms = 60_000) => { t += ms; }, titles: () => sent.map((p) => p.embeds[0].title) };
+}
+
 test('idOf: 방송 키는 방송 id → 사람 id → URL 순으로 고른다', () => {
   assert.equal(idOf({ id: 'lv1', streamerId: 'u1' }), 'lv1');
   assert.equal(idOf({ streamerId: 'u1', url: 'x' }), 'u1');
@@ -87,13 +105,37 @@ test('조회 실패(null)는 기준선을 흔들지 않는다', async () => {
   assert.deepEqual(titles(), [], '실패 후 같은 방송이 그대로면 재알림 없음');
 });
 
-test('껐다 켜면 다시 알린다', async () => {
-  const { w, titles } = watcher();
-  await w.push([live(1)]);
-  await w.push([]);                 // 방송 종료
-  await w.push([live(1)]);          // 다시 켬
+test('목록에서 잠깐 빠졌다 돌아와도 다시 알리지 않는다 (검색 순위 흔들림)', async () => {
+  const { w, titles, tick } = clockWatcher();
+  await w.push([]);
+  await w.push([live(1)]);                          // 첫 알림
+  for (let i = 0; i < 5; i++) {                     // 60초 폴링에서 깜빡임 반복
+    tick(); await w.push([]);
+    tick(); await w.push([live(1)]);
+  }
 
   assert.deepEqual(titles(), ['비리비리에서 방송자1님이 Deadly Trick 방송중!']);
+});
+
+test('시청자수가 하한 경계에서 흔들려도 한 번만 알린다', async () => {
+  const { w, titles, tick } = clockWatcher();
+  await w.push([]);
+  await w.push([live(1, { views: 55 })]);
+  tick(); await w.push([live(1, { views: 45 })]);   // 하한(50) 아래로
+  tick(); await w.push([live(1, { views: 60 })]);   // 다시 위로
+
+  assert.equal(titles().length, 1);
+});
+
+test('쿨다운이 지나면 껐다 켠 방송을 다시 알린다', async () => {
+  const { w, titles, tick } = clockWatcher();
+  await w.push([]);
+  await w.push([live(1)]);
+  tick(6 * 3600_000 + 1000);
+  await w.push([]);                                 // 방송 종료
+  await w.push([live(1)]);                          // 다시 켬
+
+  assert.equal(titles().length, 2);
 });
 
 test('알림 임베드는 다른 플랫폼과 같은 모양이다', () => {

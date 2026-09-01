@@ -1,6 +1,6 @@
 // ArisBot — Discord notification-only bot (cloud edition).
 //
-// Logs into Discord and polls Steam / Twitch / CHZZK / YouTube on a timer,
+// Logs into Discord and polls Steam / Twitch / CHZZK / 비리비리 / 니코니코 on a timer,
 // pushing an embed to the configured channel when something changes. No slash
 // commands, no message handling, no HTTP server — so no privileged intents are
 // needed.
@@ -13,11 +13,9 @@ import { startTwitchWatch } from './twitch-watch.js';
 import { createTwitchClient } from './twitch.js';
 import { startChzzkWatch } from './chzzk-watch.js';
 import { createChzzkClient } from './chzzk.js';
-import { startYouTubeWatch } from './youtube-watch.js';
-import { createYouTubeClient } from './youtube.js';
 import { createStreamLog } from './stream-log.js';
 import { createRecorder, startRecorder } from './recorder.js';
-import { createSources, youtubeLiveSighting, PLATFORMS } from './sources.js';
+import { createSources, PLATFORMS } from './sources.js';
 import { createLiveWatcher, COLORS } from './live-watch.js';
 
 const config = getConfig();
@@ -71,11 +69,13 @@ client.once(Events.ClientReady, async (c) => {
       platform: p.platform,
       color: p.color,
       matchTerms: config.matchTerms,        // 검색 기반이라 오탐을 한 번 더 거른다
+      cooldownMs: config.liveAlertCooldownSec * 1000,   // 검색 깜빡임에 같은 방송이 여러 번 울리지 않게
     });
     sightingHooks[p.platform] = (found) => watcher.push(found);
     console.log(
       `[${p.tag}] watching "${p.categoryName}" → channel ${p.channelId} ` +
-      `(every ${config.recorderPollIntervalSec}s, min ${p.minViewers} viewers)`,
+      `(every ${config.recorderPollIntervalSec}s, min ${p.minViewers} viewers, ` +
+      `재알림 ${Math.round(config.liveAlertCooldownSec / 3600)}h 뒤)`,
     );
   }
 
@@ -94,7 +94,6 @@ client.once(Events.ClientReady, async (c) => {
       })
       : { record: async () => 0 };
     recorder = createRecorder({ log, onSightings: sightingHooks });
-    // YouTube 는 search.list 쿼터(100회/일) 때문에 따로 폴링할 수 없어 워처 훅으로 기록한다.
     const sources = createSources(config, {
       gameName: config.steamGameName,
       backlog: false,                       // 지금 켜진 것만 — 가볍게 자주
@@ -200,43 +199,13 @@ client.once(Events.ClientReady, async (c) => {
     console.log('[chzzk] disabled (set CHZZK_CLIENT_ID + CHZZK_CLIENT_SECRET to enable)');
   }
 
-  if (config.youtubeApiKey && config.youtubeAlertChannelId) {
-    anyEnabled = true;
-    const youtube = createYouTubeClient({ apiKey: config.youtubeApiKey });
-    startYouTubeWatch({
-      fetchLives: async () => {
-        try {
-          return await youtube.fetchLives(config.youtubeSearchQuery);
-        } catch (e) {
-          console.error('[youtube] fetch failed:', e?.message ?? e);   // 403 quotaExceeded lands here too
-          return null;
-        }
-      },
-      send: makeSender(c, config.youtubeAlertChannelId, 'youtube'),
-      categoryName: config.youtubeCategoryName,
-      minViewers: config.youtubeAlertMinViewers,
-      matchTerms: config.youtubeMatchTerms,
-      platform: 'YouTube',
-      intervalMs: config.youtubePollIntervalSec * 1000,
-      onSightings: recorder?.hook('YouTube', youtubeLiveSighting),
-    });
-    console.log(
-      `[youtube] watching ${config.youtubeSearchQuery} → channel ${config.youtubeAlertChannelId} ` +
-      `(every ${config.youtubePollIntervalSec}s, min ${config.youtubeAlertMinViewers} viewers)`,
-    );
-    // search.list allows 100 calls/day; anything under 900s burns the quota before midnight (PT).
-    if (config.youtubePollIntervalSec < 900) {
-      console.warn(
-        `[youtube] ⚠️ ${config.youtubePollIntervalSec}s 주기는 하루 ${Math.ceil(86400 / config.youtubePollIntervalSec)}회 ` +
-        '검색 → search.list 한도(100회/일) 초과. YOUTUBE_POLL_INTERVAL_SEC 를 900 이상으로 두세요.',
-      );
-    }
-  } else {
-    console.log('[youtube] disabled (set YOUTUBE_API_KEY to enable)');
-  }
+  // YouTube 라이브 알림은 뺐다 — search.list 쿼터가 하루 100회뿐이라 15분 주기가 한계였고,
+  // 키를 안 채워 계속 꺼져 있었다. 코드(youtube.js / youtube-watch.js)는 그대로 두었으니
+  // 되살리려면 YOUTUBE_API_KEY 를 채우고 이 자리에 startYouTubeWatch 블록을 다시 넣으면 된다.
+  // 방송자 수집 CLI(`npm run find-streamers`)는 지금도 YouTube 를 검색한다.
 
   if (!anyEnabled) {
-    console.warn('[bridge] ⚠️ no alert sources enabled — set at least one of STEAM/TWITCH/CHZZK/YOUTUBE in .env');
+    console.warn('[bridge] ⚠️ no alert sources enabled — set at least one of STEAM/TWITCH/CHZZK in .env');
   }
   console.log('[bridge] ready');
 });
