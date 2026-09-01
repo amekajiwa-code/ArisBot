@@ -189,7 +189,7 @@ test('loadConfig: 비리비리·니코니코 알림 기본값 (채널 없으면 
   const c = loadConfig(base);
   assert.equal(c.bilibiliAlertEnabled, true);
   assert.equal(c.bilibiliAlertChannelId, null, '채널이 없으면 켜지지 않는다');
-  assert.equal(c.bilibiliAlertMinViewers, 1000, '비리비리 online 값은 크게 부풀려져 하한도 높다');
+  assert.equal(c.bilibiliAlertMinViewers, 10000, '看过 는 동시가 아니라 누적이라 하한도 그만큼 높다');
   assert.equal(c.bilibiliCategoryName, 'Deadly Trick');
   assert.equal(c.nicoAlertEnabled, true);
   assert.equal(c.nicoAlertMinViewers, 1000);

@@ -38,8 +38,10 @@ export function loadFinderConfig(env = process.env) {
       env.BILIBILI_ALERT_CHANNEL_ID?.trim() || env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
     bilibiliCategoryName: env.BILIBILI_CATEGORY_NAME?.trim() || 'Deadly Trick',
     // 두 플랫폼이 주는 숫자는 동시 시청자가 아니라 **누적 방문자**다(비리비리 "看过", 니코니코 来場者).
-    // 동시 시청자보다 크게 나오는 값이라 하한을 높게 잡는다.
-    bilibiliAlertMinViewers: num(env, 'BILIBILI_ALERT_MIN_VIEWERS', 1000),
+    // 방송이 길어질수록 계속 불어나서, 동시 시청자의 5~10배쯤(3~4시간 방송 기준)이 된다.
+    // 비리비리 라이브 151개를 표본으로 재보니 누적 1000명이 상위 41% — 동시로는 100~300명급이다.
+    // 동시 1000명급만 알리려면 그 5~10배가 필요해서 10000 으로 잡았다.
+    bilibiliAlertMinViewers: num(env, 'BILIBILI_ALERT_MIN_VIEWERS', 10000),
     nicoAlertEnabled: (env.NICO_ALERT_ENABLED?.trim() || '1') !== '0',
     nicoAlertChannelId:
       env.NICO_ALERT_CHANNEL_ID?.trim() || env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
