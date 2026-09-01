@@ -37,7 +37,8 @@ export function loadFinderConfig(env = process.env) {
     bilibiliAlertChannelId:
       env.BILIBILI_ALERT_CHANNEL_ID?.trim() || env.STEAM_ALERT_CHANNEL_ID?.trim() || null,
     bilibiliCategoryName: env.BILIBILI_CATEGORY_NAME?.trim() || 'Deadly Trick',
-    // 검색 기반 두 플랫폼의 시청자수는 실시청자보다 크게 부풀려진 값이라 하한을 높게 잡는다.
+    // 두 플랫폼이 주는 숫자는 동시 시청자가 아니라 **누적 방문자**다(비리비리 "看过", 니코니코 来場者).
+    // 동시 시청자보다 크게 나오는 값이라 하한을 높게 잡는다.
     bilibiliAlertMinViewers: num(env, 'BILIBILI_ALERT_MIN_VIEWERS', 1000),
     nicoAlertEnabled: (env.NICO_ALERT_ENABLED?.trim() || '1') !== '0',
     nicoAlertChannelId:
