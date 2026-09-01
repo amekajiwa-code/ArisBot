@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createLiveWatcher, buildAlert, newStreamers, idOf, COLORS } from '../src/live-watch.js';
+import { createLiveWatcher, buildAlert, newStreamers, idOf, matchesTerms, COLORS } from '../src/live-watch.js';
 
 const live = (id, over = {}) => ({
   id, streamer: `방송자${id}`, streamerId: `u${id}`,
@@ -78,6 +78,14 @@ test('검색이 물어온 엉뚱한 방송은 걸러낸다', async () => {
   await w.push([live(1, { title: '마인크래프트 건축' }), live(2, { title: 'デッドリートリック 実況' })]);
 
   assert.deepEqual(titles(), ['비리비리에서 방송자2님이 Deadly Trick 방송중!']);
+});
+
+test('matchesTerms: 일본어 중점(・)이 끼어도 같은 말로 본다', () => {
+  assert.equal(matchesTerms({ title: 'デッドリー・トリック 参加型' }, ['デッドリートリック']), true);
+});
+
+test('matchesTerms: 띄어쓰기가 달라도 같은 말로 본다', () => {
+  assert.equal(matchesTerms({ title: 'DeadlyTrick 실황' }, ['Deadly Trick']), true);
 });
 
 test('matchTerms 가 비면 필터를 끈다', async () => {

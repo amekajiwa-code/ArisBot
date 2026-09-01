@@ -6,7 +6,8 @@ export class ConfigError extends Error {}
 
 // Game name as streamers actually type it — YouTube search phrases (| = OR) and the
 // keyword list that re-checks each hit's title/description.
-const YT_DEFAULT_QUERY = '"Deadly Trick"|"데들리 트릭"|"デッドリートリック"';
+const YT_DEFAULT_QUERY =
+  '"Deadly Trick"|"DeadlyTrick"|"데들리 트릭"|"데들리트릭"|"デッドリートリック"';
 const YT_DEFAULT_TERMS = 'Deadly Trick,데들리 트릭,デッドリートリック';
 
 /** "a, b , " → ["a", "b"] */
@@ -104,8 +105,10 @@ export function loadConfig(env = process.env) {
     // Set but blank ⇒ filter off, so an explicit "" must not fall back to the default.
     youtubeMatchTerms: csv(env.YOUTUBE_MATCH_TERMS ?? YT_DEFAULT_TERMS),
     youtubeCategoryName: env.YOUTUBE_CATEGORY_NAME?.trim() || 'Deadly Trick',
-    youtubePollIntervalSec: num(env, 'YOUTUBE_POLL_INTERVAL_SEC', 900),
-    youtubeAlertMinViewers: num(env, 'YOUTUBE_ALERT_MIN_VIEWERS', 30),
+    // search.list 는 하루 100회뿐이다. 20분 주기 = 72회/일 로, 방송자 수집 CLI 몫을 남긴다.
+    youtubePollIntervalSec: num(env, 'YOUTUBE_POLL_INTERVAL_SEC', 1200),
+    // 대형 버튜버(홀로라이브·니지산지)만 걸리게 높게 잡는다. 20분 주기의 지연도 이 규모에선 무의미하다.
+    youtubeAlertMinViewers: num(env, 'YOUTUBE_ALERT_MIN_VIEWERS', 100),
   };
 }
 

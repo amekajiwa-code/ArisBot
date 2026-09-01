@@ -13,11 +13,10 @@ const ALERT_COLOR = 0xff0000; // YouTube red
  * @param {{title?: string, description?: string}} live
  * @param {string[]} terms
  */
-export function matchesTerms(live, terms) {
-  if (!terms?.length) return true;
-  const haystack = `${live.title ?? ''}\n${live.description ?? ''}`.toLowerCase();
-  return terms.some((t) => haystack.includes(t.toLowerCase()));
-}
+// 표기 흔들림(대소문자·공백·중점)을 무시하는 2차 필터. 비리비리/니코니코 워처와
+// 같은 규칙을 써야 하므로 live-watch.js 의 것을 공용으로 쓴다.
+import { matchesTerms } from './live-watch.js';
+export { matchesTerms };   // 이 파일 안에서도 쓰므로 re-export 가 아니라 import + export
 
 /**
  * Lives that deserve a fresh announcement: live now and at/above `minViewers`,

@@ -124,11 +124,12 @@ test('loadConfig: youtube alert defaults (no api key → feature off)', () => {
   const c = loadConfig(base);
   assert.equal(c.youtubeApiKey, null);
   assert.equal(c.youtubeAlertChannelId, null);
-  assert.equal(c.youtubeSearchQuery, '"Deadly Trick"|"데들리 트릭"|"デッドリートリック"');
+  assert.equal(c.youtubeSearchQuery,
+    '"Deadly Trick"|"DeadlyTrick"|"데들리 트릭"|"데들리트릭"|"デッドリートリック"');
   assert.deepEqual(c.youtubeMatchTerms, ['Deadly Trick', '데들리 트릭', 'デッドリートリック']);
   assert.equal(c.youtubeCategoryName, 'Deadly Trick');
-  assert.equal(c.youtubePollIntervalSec, 900);
-  assert.equal(c.youtubeAlertMinViewers, 30);
+  assert.equal(c.youtubePollIntervalSec, 1200);   // search.list 100회/일 한도 안에서 CLI 몫을 남긴다
+  assert.equal(c.youtubeAlertMinViewers, 100);
 });
 
 test('loadConfig: youtube alert channel falls back to the steam channel when unset', () => {
@@ -148,14 +149,14 @@ test('loadConfig: youtube alert values from env', () => {
     YOUTUBE_SEARCH_QUERY: '"Among Us"',
     YOUTUBE_MATCH_TERMS: 'Among Us, 어몽어스',
     YOUTUBE_CATEGORY_NAME: 'Among Us',
-    YOUTUBE_POLL_INTERVAL_SEC: '1200',
+    YOUTUBE_POLL_INTERVAL_SEC: '1500',
     YOUTUBE_ALERT_MIN_VIEWERS: '3',
   });
   assert.equal(c.youtubeApiKey, 'ykey');
   assert.equal(c.youtubeSearchQuery, '"Among Us"');
   assert.deepEqual(c.youtubeMatchTerms, ['Among Us', '어몽어스'], 'trims whitespace around commas');
   assert.equal(c.youtubeCategoryName, 'Among Us');
-  assert.equal(c.youtubePollIntervalSec, 1200);
+  assert.equal(c.youtubePollIntervalSec, 1500);
   assert.equal(c.youtubeAlertMinViewers, 3);
 });
 

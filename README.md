@@ -105,7 +105,7 @@ nano .env                  # 아래 표를 보고 채우기
 | `STEAM_APP_ID` / `STEAM_GAME_NAME` | 감시할 게임 (기본값은 예시 게임) |
 | `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` _(선택)_ | 둘 다 채우면 Twitch 알림 켜짐 ([dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps), Confidential 앱) |
 | `CHZZK_CLIENT_ID` / `CHZZK_CLIENT_SECRET` _(선택)_ | 둘 다 채우면 치지직 알림 켜짐 ([developers.chzzk.naver.com](https://developers.chzzk.naver.com)) |
-| `YOUTUBE_API_KEY` _(선택)_ | 방송자 수집 CLI(`npm run find-streamers`)에서만 쓴다. **라이브 알림에서는 뺐다** (Google Cloud Console → YouTube Data API v3 사용 설정 → API 키) |
+| `YOUTUBE_API_KEY` _(선택)_ | 채우면 **YouTube 라이브 알림이 켜진다**(20분 주기, 시청자 100명 이상). 방송자 수집 CLI(`npm run find-streamers`)도 이 키를 쓴다 (Google Cloud Console → YouTube Data API v3 사용 설정 → API 키) |
 | `BILIBILI_ALERT_CHANNEL_ID` / `NICO_ALERT_CHANNEL_ID` _(선택)_ | 비리비리·니코니코 알림 채널. 안 정하면 `STEAM_ALERT_CHANNEL_ID` 를 쓰고, 그것도 없으면 꺼짐. 끄려면 `BILIBILI_ALERT_ENABLED=0` / `NICO_ALERT_ENABLED=0` |
 
 > 채널 id는 디스코드에서 **사용자 설정 → 고급 → 개발자 모드**를 켠 뒤 채널 우클릭 → **채널 ID 복사**.
@@ -158,7 +158,7 @@ journalctl -u arisbot -n 20 --no-pager
 
 ## ⚙️ 설정 항목 전체
 
-`.env.example`에 각 항목의 의미가 주석으로 달려 있다. 폴링 주기(`*_POLL_INTERVAL_SEC`, 기본 600초), 시청자 하한(`*_ALERT_MIN_VIEWERS`, 트위치·치지직 기본 50명 · 유튜브 30명 — **비리비리·니코니코는 1000명**), 재알림 금지 기간(`LIVE_ALERT_COOLDOWN_SEC`, 기본 6시간), 치지직 스캔 깊이(`CHZZK_MAX_PAGES`, 기본 50 = 상위 1000개) 등을 조절할 수 있다.
+`.env.example`에 각 항목의 의미가 주석으로 달려 있다. 폴링 주기(`*_POLL_INTERVAL_SEC`, 기본 600초), 시청자 하한(`*_ALERT_MIN_VIEWERS`, 트위치·치지직 기본 50명 · **유튜브 100명** — **비리비리·니코니코는 1000명**), 재알림 금지 기간(`LIVE_ALERT_COOLDOWN_SEC`, 기본 6시간), 치지직 스캔 깊이(`CHZZK_MAX_PAGES`, 기본 50 = 상위 1000개) 등을 조절할 수 있다.
 
 > 비리비리·니코니코의 시청자수는 실제보다 크게 부풀려진 값이라, 같은 "50명"이 다른 플랫폼과 전혀 다른 규모를 뜻한다. 그래서 이 둘만 하한 기본값이 1000이다.
 
@@ -169,9 +169,9 @@ journalctl -u arisbot -n 20 --no-pager
 > — 그 아래는 하한을 넘을 수 없기 때문이다. 시간대에 따라 달라지니 피크(저녁)에 재보는 게 의미 있다.
 > 단 **기록기는 시청자 하한이 없어** 못 본 구간의 소규모 방송은 기록에서 빠진다(명단이 성겨짐).
 >
-> ⚠️ **YouTube의 `search.list`는 하루 100회가 한도다.** (다른 엔드포인트의 10,000 unit 풀과 별개인 전용 버킷.) 라이브 알림을 15분 주기로 묶어야 했던 이유이고, **알림에서 YouTube를 뺀 이유**이기도 하다. 지금은 방송자 수집 CLI가 실행할 때만 이 쿼터를 쓴다(1회당 `search.list` 2회).
+> ⚠️ **YouTube의 `search.list`는 하루 100회가 한도다.** (다른 엔드포인트의 10,000 unit 풀과 별개인 전용 버킷.) 그래서 라이브 알림을 **20분 주기(72회/일)** 로 돌리고, 남는 몫을 방송자 수집 CLI(1회당 `search.list` 2회)에 남긴다. **주기를 줄이면 CLI가 쿼터를 못 쓰거나 알림이 그날 끊긴다.** 기록기는 YouTube를 폴링하지 않으므로(1분 주기에 넣으면 즉시 초과) 쿼터를 쓰는 곳은 이 둘뿐이다.
 >
-> ⚠️ **YouTube엔 게임 카테고리로 라이브를 조회하는 API가 없다.** 제목·설명·태그를 훑는 검색어(`YOUTUBE_SEARCH_QUERY`)에 의존하므로, 게임명을 어디에도 안 적은 방송은 놓친다(수집 CLI에도 그대로 적용되는 한계). 반대로 검색은 관련성 기반이라 엉뚱한 방송도 물어오는데, 이건 `YOUTUBE_MATCH_TERMS`로 한 번 더 거른다.
+> ⚠️ **YouTube엔 게임 카테고리로 라이브를 조회하는 API가 없다.** 제목·설명·태그를 훑는 검색어(`YOUTUBE_SEARCH_QUERY`)에 의존하므로, 게임명을 어디에도 안 적은 방송은 놓친다(수집 CLI에도 그대로 적용되는 한계). 반대로 검색은 관련성 기반이라 엉뚱한 방송도 물어오는데, 이건 `YOUTUBE_MATCH_TERMS`로 한 번 더 거른다. 이 2차 필터는 **대소문자·띄어쓰기·일본어 중점(・)을 무시**하므로 `DeadlyTrick`, `데들리트릭`, `デッドリー・トリック` 같은 표기 변형을 일일이 적을 필요가 없다.
 
 ---
 

@@ -19,10 +19,20 @@ export function idOf(live) {
  * 엉뚱한 방송도 물어온다 — YouTube 워처와 같은 2차 필터다.
  * terms 가 비면 필터를 끈다.
  */
+/**
+ * 표기 흔들림을 지운다: 대소문자, 공백(전각 포함), 일본어 중점(・).
+ * "Deadly Trick" / "DeadlyTrick" / "デッドリー・トリック" 이 한 형태로 모인다.
+ */
+export const normalize = (s) => String(s ?? '').toLowerCase().replace(/[\s\u30fb\uff65\u00b7]/g, '');
+
 export function matchesTerms(live, terms) {
   if (!terms?.length) return true;
-  const haystack = `${live?.title ?? ''}\n${live?.description ?? ''}`.toLowerCase();
-  return terms.some((t) => haystack.includes(String(t).toLowerCase()));
+  // 제목과 설명을 각각 본다. 이어붙이면 제목 끝 + 설명 시작이 붙어 없던 말이 생긴다.
+  const fields = [normalize(live?.title), normalize(live?.description)];
+  return terms.some((t) => {
+    const needle = normalize(t);
+    return needle !== '' && fields.some((f) => f.includes(needle));
+  });
 }
 
 /** 새로 알릴 방송: 시청자 하한을 넘고, 직전 목록엔 없던 것. 기준선 전이면 []. */

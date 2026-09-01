@@ -27,6 +27,18 @@ test('matchesTerms: term matching ignores case', () => {
   assert.equal(matchesTerms(live('v1', 'A', { title: 'DEADLY TRICK 8인' }), ['Deadly Trick']), true);
 });
 
+test('matchesTerms: 띄어쓰기가 달라도 같은 말로 본다', () => {
+  assert.equal(matchesTerms(live('v1', 'A', { title: 'DeadlyTrick 8인 실황' }), ['Deadly Trick']), true);
+});
+
+test('matchesTerms: 한글도 띄어쓰기를 무시한다', () => {
+  assert.equal(matchesTerms(live('v1', 'A', { title: '데들리트릭 참가형' }), ['데들리 트릭']), true);
+});
+
+test('matchesTerms: 일본어 중점(・)이 끼어도 같은 말로 본다', () => {
+  assert.equal(matchesTerms(live('v1', 'A', { title: 'デッドリー・トリック 参加型' }), ['デッドリートリック']), true);
+});
+
 test('matchesTerms: a live mentioning none of the terms is rejected', () => {
   assert.equal(matchesTerms(live('v1', 'A', { title: 'Deadly Premonition 실황' }), ['Deadly Trick']), false);
 });

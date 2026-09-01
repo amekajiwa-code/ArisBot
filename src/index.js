@@ -16,6 +16,8 @@ import { createChzzkClient } from './chzzk.js';
 import { createStreamLog } from './stream-log.js';
 import { createRecorder, startRecorder } from './recorder.js';
 import { createSources, PLATFORMS } from './sources.js';
+import { startYouTubeWatch } from './youtube-watch.js';
+import { createYouTubeClient } from './youtube.js';
 import { createLiveWatcher, COLORS } from './live-watch.js';
 
 const config = getConfig();
@@ -199,10 +201,35 @@ client.once(Events.ClientReady, async (c) => {
     console.log('[chzzk] disabled (set CHZZK_CLIENT_ID + CHZZK_CLIENT_SECRET to enable)');
   }
 
-  // YouTube 라이브 알림은 뺐다 — search.list 쿼터가 하루 100회뿐이라 15분 주기가 한계였고,
-  // 키를 안 채워 계속 꺼져 있었다. 코드(youtube.js / youtube-watch.js)는 그대로 두었으니
-  // 되살리려면 YOUTUBE_API_KEY 를 채우고 이 자리에 startYouTubeWatch 블록을 다시 넣으면 된다.
-  // 방송자 수집 CLI(`npm run find-streamers`)는 지금도 YouTube 를 검색한다.
+  // YouTube 라이브 알림. search.list 는 하루 100회뿐이라 20분 주기(72회/일)로 돌린다 —
+  // 남는 몫은 방송자 수집 CLI(`npm run find-streamers`, 1회당 2건)가 쓴다.
+  // 기록기는 YouTube 를 폴링하지 않으므로(위 only 목록) 여기 말고 쿼터를 쓰는 곳은 없다.
+  if (config.youtubeApiKey && config.youtubeAlertChannelId) {
+    anyEnabled = true;
+    const youtube = createYouTubeClient({ apiKey: config.youtubeApiKey });
+    startYouTubeWatch({
+      fetchLives: async () => {
+        try {
+          return await youtube.fetchLives(config.youtubeSearchQuery);
+        } catch (e) {
+          console.error('[youtube] fetch failed:', e?.message ?? e);
+          return null;
+        }
+      },
+      send: makeSender(c, config.youtubeAlertChannelId, 'youtube'),
+      categoryName: config.youtubeCategoryName,
+      minViewers: config.youtubeAlertMinViewers,
+      matchTerms: config.youtubeMatchTerms,   // 게임 카테고리 조회가 없어 검색이라, 2차 필터가 필수다
+      platform: 'YouTube',
+      intervalMs: config.youtubePollIntervalSec * 1000,
+    });
+    console.log(
+      `[youtube] watching "${config.youtubeCategoryName}" → channel ${config.youtubeAlertChannelId} ` +
+      `(every ${config.youtubePollIntervalSec}s, min ${config.youtubeAlertMinViewers} viewers)`,
+    );
+  } else {
+    console.log('[youtube] disabled (set YOUTUBE_API_KEY to enable)');
+  }
 
   if (!anyEnabled) {
     console.warn('[bridge] ⚠️ no alert sources enabled — set at least one of STEAM/TWITCH/CHZZK in .env');
